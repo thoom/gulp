@@ -14,9 +14,27 @@ import (
 	"github.com/ghodss/yaml"
 )
 
-var (
-	config = gulpConfig{}
+type stringSlice []string
 
+func (s *stringSlice) String() string {
+	return fmt.Sprintf("%s", *s)
+}
+
+// The second method is Set(value string) error
+func (s *stringSlice) Set(value string) error {
+	*s = append(*s, value)
+	return nil
+}
+
+type gulpConfig struct {
+	URL     string            `json:"url" yaml:"url"`
+	Headers map[string]string `json:"headers" yaml:"headers"`
+}
+
+var (
+	reqHeaders stringSlice
+
+	config           = gulpConfig{}
 	methodFlag       = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
 	configFlag       = flag.String("c", ".gulp.yml", "The `configuration` file to use")
 	displayFlag      = flag.String("display", "response-only", "How to display the output: verbose, response-only, success-only")
@@ -25,13 +43,8 @@ var (
 	verboseFlag      = flag.Bool("dv", false, "Equivalent to '-display verbose'")
 )
 
-// Config is a data class describing the options
-type gulpConfig struct {
-	URL     string            `json:"url" yaml:"url"`
-	Headers map[string]string `json:"headers" yaml:"headers"`
-}
-
 func main() {
+	flag.Var(&reqHeaders, "H", "Additional request `header`s to pass to the request")
 	flag.Parse()
 
 	config = loadConfiguration(*configFlag)
@@ -114,6 +127,11 @@ func createRequest(method string, url string, body string) *http.Request {
 		req.Header.Set(k, v)
 	}
 
+	for _, header := range reqHeaders {
+		pieces := strings.Split(header, ":")
+		req.Header.Set(pieces[0], strings.TrimSpace(pieces[1]))
+	}
+
 	return req
 }
 
@@ -190,10 +208,6 @@ func getPostBody() string {
 			fmt.Fprintln(os.Stderr, "reading standard input:", err)
 			os.Exit(1)
 		}
-		// fmt.Println("body: " + string(body))
-
-		// yaml.Unmarshal([]byte(body), &postData)
-		// fmt.Println("yaml: ", postData)
 
 		j, err := yaml.YAMLToJSON([]byte(stdin))
 		if err != nil {
@@ -201,7 +215,6 @@ func getPostBody() string {
 			os.Exit(1)
 		}
 
-		// fmt.Println("json: " + string(j))
 		body = string(j)
 	}
 
