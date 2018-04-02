@@ -2,7 +2,9 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/tls"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -163,9 +165,14 @@ func handleResponse(resp *http.Response) {
 	}
 
 	if isJSON {
-		// j, _ := json.MarshalIndent(body, "", "\t")
-		// fmt.Println(string(j))
-		fmt.Println(string(body))
+		var prettyJSON bytes.Buffer
+		err := json.Indent(&prettyJSON, body, "", "  ")
+		if err != nil {
+			// Don't worry about pretty-printing if we got an error
+			fmt.Println(string(body))
+		} else {
+			fmt.Println(string(prettyJSON.Bytes()))
+		}
 	} else {
 		fmt.Println(string(body))
 	}
