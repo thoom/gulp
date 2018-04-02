@@ -29,8 +29,9 @@ func (s *stringSlice) Set(value string) error {
 }
 
 type gulpConfig struct {
-	URL     string            `json:"url" yaml:"url"`
-	Headers map[string]string `json:"headers" yaml:"headers"`
+	URL     string            `yaml:"url"`
+	Headers map[string]string `yaml:"headers"`
+	Display string            `yaml:"display"`
 }
 
 var (
@@ -39,27 +40,24 @@ var (
 	config           = gulpConfig{}
 	methodFlag       = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
 	configFlag       = flag.String("c", ".gulp.yml", "The `configuration` file to use")
-	displayFlag      = flag.String("display", "response-only", "How to display the output: verbose, response-only, success-only")
-	responseOnlyFlag = flag.Bool("dr", false, "Equivalent to '-display response-only'")
-	successOnlyFlag  = flag.Bool("ds", false, "Equivalent to '-display success-only'")
-	verboseFlag      = flag.Bool("dv", false, "Equivalent to '-display verbose'")
+	responseOnlyFlag = flag.Bool("dr", false, "Only display the response body (default)")
+	successOnlyFlag  = flag.Bool("ds", false, "Only display whether or not the request was successful")
+	verboseFlag      = flag.Bool("dv", false, "Display the response body along with various headers")
 )
 
 func main() {
-	flag.Var(&reqHeaders, "H", "Additional request `header`s to pass to the request")
+	flag.Var(&reqHeaders, "H", "Set a `request` header")
 	flag.Parse()
 
 	config = loadConfiguration(*configFlag)
-
-	// If none of the booleans were set, then try the displayFlag
 	if !*responseOnlyFlag && !*successOnlyFlag && !*verboseFlag {
-		switch *displayFlag {
-		case "response-only":
-			*responseOnlyFlag = true
+		switch config.Display {
 		case "success-only":
 			*successOnlyFlag = true
 		case "verbose":
 			*verboseFlag = true
+		default:
+			*responseOnlyFlag = true
 		}
 	}
 
@@ -167,15 +165,13 @@ func handleResponse(resp *http.Response) {
 	if isJSON {
 		var prettyJSON bytes.Buffer
 		err := json.Indent(&prettyJSON, body, "", "  ")
-		if err != nil {
+		if err == nil {
 			// Don't worry about pretty-printing if we got an error
-			fmt.Println(string(body))
-		} else {
-			fmt.Println(string(prettyJSON.Bytes()))
+			body = prettyJSON.Bytes()
 		}
-	} else {
-		fmt.Println(string(body))
 	}
+
+	fmt.Println(string(body))
 	os.Exit(0)
 }
 
