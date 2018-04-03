@@ -113,10 +113,6 @@ func createRequest(method string, url string, body string) *http.Request {
 
 	// If the reader is empty, then we didn't have a post body
 	if reader != nil {
-		if *verboseFlag {
-			fmt.Println("body: " + body)
-		}
-
 		// We onlly allow json bodies
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -134,11 +130,21 @@ func createRequest(method string, url string, body string) *http.Request {
 		block := []string{fmt.Sprintf("%s %s", *methodFlag, url)}
 		for k, v := range req.Header {
 			for _, h := range v {
-				block = append(block, k+": "+h)
+				block = append(block, strings.ToUpper(k)+": "+h)
 			}
 		}
 		PrintBlock(strings.Join(block, "\n"))
 		fmt.Println()
+
+		// Output the post body if one was passed in
+		// if reader != nil {
+		// 	var prettyJSON bytes.Buffer
+		// 	err := json.Indent(&prettyJSON, []byte(body), "", "  ")
+		// 	if err == nil {
+		// 		// Don't worry about pretty-printing if we got an error
+		// 		fmt.Println(string(prettyJSON.Bytes()) + "\n")
+		// 	}
+		// }
 	}
 
 	return req
@@ -163,7 +169,7 @@ func handleResponse(resp *http.Response) {
 			isJSON = true
 		}
 		if *verboseFlag {
-			fmt.Println(k + ": " + strings.Join(v, ","))
+			fmt.Println(strings.ToUpper(k) + ": " + strings.Join(v, ","))
 		}
 	}
 
