@@ -28,21 +28,16 @@ func (s *stringSlice) Set(value string) error {
 	return nil
 }
 
-type gulpConfig struct {
-	URL     string            `yaml:"url"`
-	Headers map[string]string `yaml:"headers"`
-	Display string            `yaml:"display"`
-}
-
 var (
 	reqHeaders stringSlice
 
-	config           = gulpConfig{}
+	config           = NewConfig()
 	methodFlag       = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
 	configFlag       = flag.String("c", ".gulp.yml", "The `configuration` file to use")
-	responseOnlyFlag = flag.Bool("dr", false, "Only display the response body (default)")
-	successOnlyFlag  = flag.Bool("ds", false, "Only display whether or not the request was successful")
-	verboseFlag      = flag.Bool("dv", false, "Display the response body along with various headers")
+	insecureFlag     = flag.Bool("k", false, "Insecure TLS communication")
+	responseOnlyFlag = flag.Bool("ro", false, "Only display the response body (default)")
+	successOnlyFlag  = flag.Bool("so", false, "Only display whether or not the request was successful")
+	verboseFlag      = flag.Bool("I", false, "Display the response body along with various headers")
 )
 
 func main() {
@@ -50,6 +45,7 @@ func main() {
 	flag.Parse()
 
 	config = loadConfiguration(*configFlag)
+	// Set the flag based on the configuration if none of the flags are set
 	if !*responseOnlyFlag && !*successOnlyFlag && !*verboseFlag {
 		switch config.Display {
 		case "success-only":
@@ -74,15 +70,15 @@ func main() {
 	}
 
 	if url == "" {
-		fmt.Println("Need something to access")
-		os.Exit(1)
+		ExitErr("Need a URL to make a request", nil)
 	}
 
-	if *verboseFlag {
-		fmt.Println("url: " + url)
+	if *insecureFlag || !config.TLSVerify() {
+		if *verboseFlag {
+			PrintWarning("TLS checking is disabled for this request")
+		}
+		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
-
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 
 	client := &http.Client{}
 	body := ""
@@ -109,9 +105,11 @@ func createRequest(method string, url string, body string) *http.Request {
 
 	req, err := http.NewRequest(method, url, reader)
 	if err != nil {
-		fmt.Println("could not build request: ", err)
-		os.Exit(1)
+		ExitErr("Could not build request", err)
 	}
+
+	// Set the default User-Agent
+	req.Header.Set("User-Agent", "thoom.Gulp/0.2")
 
 	// If the reader is empty, then we didn't have a post body
 	if reader != nil {
@@ -132,12 +130,23 @@ func createRequest(method string, url string, body string) *http.Request {
 		req.Header.Set(pieces[0], strings.TrimSpace(pieces[1]))
 	}
 
+	if *verboseFlag {
+		block := []string{fmt.Sprintf("%s %s", *methodFlag, url)}
+		for k, v := range req.Header {
+			for _, h := range v {
+				block = append(block, k+": "+h)
+			}
+		}
+		PrintBlock(strings.Join(block, "\n"))
+		fmt.Println()
+	}
+
 	return req
 }
 
 func handleResponse(resp *http.Response) {
 	if *successOnlyFlag {
-		fmt.Println(resp.StatusCode >= 200 && resp.StatusCode < 300)
+		fmt.Println(resp.StatusCode < 400)
 		os.Exit(0)
 	}
 
@@ -145,7 +154,7 @@ func handleResponse(resp *http.Response) {
 	body, _ := ioutil.ReadAll(resp.Body)
 
 	if *verboseFlag {
-		fmt.Println("Status: " + resp.Status + "\n")
+		PrintStoplight(fmt.Sprintf("Status: %s\n", resp.Status), resp.StatusCode >= 400)
 	}
 
 	isJSON := false
@@ -162,7 +171,7 @@ func handleResponse(resp *http.Response) {
 		fmt.Println("")
 	}
 
-	if isJSON {
+	if isJSON && *verboseFlag {
 		var prettyJSON bytes.Buffer
 		err := json.Indent(&prettyJSON, body, "", "  ")
 		if err == nil {
@@ -175,25 +184,23 @@ func handleResponse(resp *http.Response) {
 	os.Exit(0)
 }
 
-func loadConfiguration(fileName string) gulpConfig {
+func loadConfiguration(fileName string) GulpConfig {
 	dat, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		// If the file wasn't found and it's just the default, don't worry about it.
 		if fileName == ".gulp.yml" {
-			return gulpConfig{}
+			return config
 		}
 
-		fmt.Println("Configuration file not found")
-		os.Exit(1)
+		ExitErr(fmt.Sprintf("Could not load configuration '%s'", fileName), nil)
 	}
 
-	var config gulpConfig
-	if yaml.Unmarshal(dat, &config) != nil {
-		fmt.Println("Could not parse configuration")
-		os.Exit(1)
+	var gulpConfig GulpConfig
+	if yaml.Unmarshal(dat, &gulpConfig) != nil {
+		ExitErr("Could not parse configuration", nil)
 	}
 
-	return config
+	return gulpConfig
 }
 
 func getPostBody() string {
@@ -208,14 +215,12 @@ func getPostBody() string {
 		}
 
 		if err := scanner.Err(); err != nil {
-			fmt.Fprintln(os.Stderr, "reading standard input:", err)
-			os.Exit(1)
+			ExitErr("Reading standard input", err)
 		}
 
 		j, err := yaml.YAMLToJSON([]byte(stdin))
 		if err != nil {
-			fmt.Println(err)
-			os.Exit(1)
+			ExitErr("Could not parse post body", err)
 		}
 
 		body = string(j)
