@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -9,17 +10,21 @@ import (
 )
 
 // PrintWarning outputs a warning
-func PrintWarning(txt string) {
+func PrintWarning(txt string, writer io.Writer) {
 	txt = fmt.Sprintf("WARNING: %s ", strings.ToUpper(txt))
 	if config.UseColor() {
 		txt = color.New(color.FgHiYellow, color.Bold).Sprintf(txt)
 	}
 
-	fmt.Println(txt)
+	if writer == nil {
+		writer = os.Stdout
+	}
+
+	fmt.Fprintln(writer, txt)
 }
 
 // PrintStoplight will print out red if stopped is true, green if not
-func PrintStoplight(txt string, stopped bool) {
+func PrintStoplight(txt string, stopped bool, writer io.Writer) {
 	if config.UseColor() {
 		c := color.FgHiGreen
 		if stopped {
@@ -29,19 +34,27 @@ func PrintStoplight(txt string, stopped bool) {
 		txt = color.New(c).Sprintf(txt)
 	}
 
-	fmt.Println(txt)
+	if writer == nil {
+		writer = os.Stdout
+	}
+
+	fmt.Fprintln(writer, txt)
 }
 
 // PrintHeader prints out the header
-func PrintHeader(txt string) {
+func PrintHeader(txt string, writer io.Writer) {
 	if config.UseColor() {
 		txt = color.New(color.FgHiCyan, color.Bold).Sprintf(fmt.Sprintf("\n%s\n", txt))
 	}
-	fmt.Println(txt)
+
+	if writer == nil {
+		writer = os.Stdout
+	}
+	fmt.Fprintln(writer, txt)
 }
 
 // PrintBlock prints out a block of code with the same background
-func PrintBlock(block string) {
+func PrintBlock(block string, writer io.Writer) {
 	txt := ""
 	if config.UseColor() {
 		pieces := strings.Split(block, "\n")
@@ -64,7 +77,7 @@ func PrintBlock(block string) {
 
 			v = fmt.Sprintf("%s%s ", v, padding)
 			if i == 0 {
-				PrintHeader(v)
+				PrintHeader(v, writer)
 				// fmt.Println(color.New(color.FgHiCyan, color.Bold).Sprintf(v))
 				continue
 			}
@@ -76,7 +89,11 @@ func PrintBlock(block string) {
 		txt = block
 	}
 
-	fmt.Println(txt)
+	if writer == nil {
+		writer = os.Stdout
+	}
+
+	fmt.Fprintln(writer, txt)
 }
 
 // ExitErr prints out an error and quits

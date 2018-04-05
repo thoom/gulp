@@ -12,6 +12,8 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/ghodss/yaml"
 )
@@ -38,6 +40,8 @@ var (
 	responseOnlyFlag = flag.Bool("ro", false, "Only display the response body (default)")
 	successOnlyFlag  = flag.Bool("so", false, "Only display whether or not the request was successful")
 	verboseFlag      = flag.Bool("I", false, "Display the response body along with various headers")
+	repeatFlag       = flag.Int("repeat", 1, "Number of `iteration`s to submit the request")
+	groupFlag        = flag.Int("repeat-group", 1, "Number of `concurrent connections` when grouping")
 )
 
 func main() {
@@ -75,29 +79,62 @@ func main() {
 
 	if *insecureFlag || !config.TLSVerify() {
 		if *verboseFlag {
-			PrintWarning("TLS checking is disabled for this request")
+			PrintWarning("TLS checking is disabled for this request", nil)
 		}
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
 
-	client := &http.Client{}
-	body := ""
-
 	// Don't get the post body if it's a GET/HEAD request
+	body := ""
 	if *methodFlag != "GET" && *methodFlag != "HEAD" {
 		body = getPostBody()
 	}
 
-	resp, err := client.Do(createRequest(*methodFlag, url, body))
-	if err != nil {
-		fmt.Println("somethun happened: ", err)
-		os.Exit(0)
-	}
+	iteration := 0
+	for i := 0; i < *repeatFlag; i += *groupFlag {
+		var wg sync.WaitGroup
 
-	handleResponse(resp)
+		ci := *groupFlag
+		if i >= *groupFlag {
+			remaining := *repeatFlag - i
+			if remaining < ci {
+				ci = remaining
+			}
+		}
+
+		for c := 0; c < ci; c++ {
+			wg.Add(1)
+			go func(url string, body string, i int) {
+				defer wg.Done()
+				var startTimer, endTimer time.Time
+
+				b := &bytes.Buffer{}
+				defer fmt.Print(b)
+
+				if *repeatFlag > 1 {
+					iteration++
+					PrintHeader(fmt.Sprintf("Iteration #%d", iteration), b)
+				}
+
+				req := createRequest(*methodFlag, url, body, b)
+				client := &http.Client{}
+
+				startTimer = time.Now()
+				resp, err := client.Do(req)
+				endTimer = time.Now()
+
+				if err != nil {
+					ExitErr("Something unexpected happened", err)
+				}
+
+				handleResponse(resp, endTimer.Sub(startTimer).Seconds(), b)
+			}(url, body, i)
+		}
+		wg.Wait()
+	}
 }
 
-func createRequest(method string, url string, body string) *http.Request {
+func createRequest(method string, url string, body string, writer io.Writer) *http.Request {
 	var reader io.Reader
 	if body != "" {
 		reader = strings.NewReader(body)
@@ -127,14 +164,18 @@ func createRequest(method string, url string, body string) *http.Request {
 	}
 
 	if *verboseFlag {
+		if writer == nil {
+			writer = os.Stdout
+		}
+
 		block := []string{fmt.Sprintf("%s %s", *methodFlag, url)}
 		for k, v := range req.Header {
 			for _, h := range v {
 				block = append(block, strings.ToUpper(k)+": "+h)
 			}
 		}
-		PrintBlock(strings.Join(block, "\n"))
-		fmt.Println()
+		PrintBlock(strings.Join(block, "\n"), writer)
+		fmt.Fprintln(writer)
 
 		// Output the post body if one was passed in
 		// if reader != nil {
@@ -150,17 +191,21 @@ func createRequest(method string, url string, body string) *http.Request {
 	return req
 }
 
-func handleResponse(resp *http.Response) {
+func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
+	if writer == nil {
+		writer = os.Stdout
+	}
+
 	if *successOnlyFlag {
-		fmt.Println(resp.StatusCode < 400)
-		os.Exit(0)
+		fmt.Fprintln(writer, resp.StatusCode < 400)
+		return
 	}
 
 	defer resp.Body.Close()
 	body, _ := ioutil.ReadAll(resp.Body)
 
 	if *verboseFlag {
-		PrintStoplight(fmt.Sprintf("Status: %s\n", resp.Status), resp.StatusCode >= 400)
+		PrintStoplight(fmt.Sprintf("Status: %s (%.2f seconds)\n", resp.Status, duration), resp.StatusCode >= 400, writer)
 	}
 
 	isJSON := false
@@ -169,12 +214,12 @@ func handleResponse(resp *http.Response) {
 			isJSON = true
 		}
 		if *verboseFlag {
-			fmt.Println(strings.ToUpper(k) + ": " + strings.Join(v, ","))
+			fmt.Fprintln(writer, strings.ToUpper(k)+": "+strings.Join(v, ","))
 		}
 	}
 
 	if *verboseFlag {
-		fmt.Println("")
+		fmt.Fprintln(writer, "")
 	}
 
 	if isJSON && *verboseFlag {
@@ -186,8 +231,7 @@ func handleResponse(resp *http.Response) {
 		}
 	}
 
-	fmt.Println(string(body))
-	os.Exit(0)
+	fmt.Fprintln(writer, string(body))
 }
 
 func loadConfiguration(fileName string) GulpConfig {
