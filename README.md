@@ -13,24 +13,34 @@ By default, the client will look for a `.gulp.yml` file in the current directory
 
 ### config options
 
-* __url__: The url to use with requests. This will be overridden if the last argument in the command starts with http.
+* __url__: The url to use with requests. Setting this configuration option allows for simplified paths in the command line. It can be overridden if the last argument in the command starts with `http`.  
 
-* __headers__: An map of request headers to be included in all requests. Individual headers can be overridden using the `-H` argument.
+  For instance, if you have the url configuration `https://api.ex.io`, then if you want to get the current user (ie. _https://api.ex.io/user/me_), the command line call could be `gulp /user/me` instead of `gulp https://api.ex.io/user/me`.
 
-* __display__: How to display responses. If not set, only the response body will be displayed. Allowed values are `verbose` and `success-only`. These can be overridden by the `-ro`, `-so`, and `-I` flags. 
+* __headers__: A map of request headers to be included in all requests. Individual headers can be overridden using the `-H` argument.
 
-* __flags__: Toggles that can be turned on or off:
+* __display__: How to display responses. If not set, only the response body will be displayed. Allowed values are `verbose` and `status-code-only`. These can be overridden by the `-ro`, `-so`, and `-I` flags. 
+
+* __flags__: Options that can be turned on or off:
   * __use_color__: Whether or not to colorize verbose responses. Enabled by default.
 
   * __tls_verify__: Whether or not to check TLS certificates. Enabled by default. Can be overridden by the `-k` flag.
 
 ## payload
 
-You can use either JSON or YAML as a payload to a posted endpoint. The advantage of using YAML is that the format is simpler than JSON and allows features like comments.
+You can use either JSON or YAML as a payload to a posted endpoint. Some advantages include being able to have comments and not requiring superfluous usage of curly braces and quotation marks.
 
-Since valid JSON is also VALID YAML, you may use either.
+The command to post data: `gulp -m POST https://api.ex.io/message < postData.yml`
 
-To submit a payload, do something like: `gulp -m POST https://ex.io/api/message < postData.yml`
+## load testing
+
+There are 2 command line flags that can be used as a poor-man's load testing/throttling service:
+
+ * __-repeat-times__: The number of times to submit a request.
+
+ * __-repeat-concurrent__: The number of concurrent connections to use to submit the request.
+
+ For example, if you ran `gulp -repeat-times 100 -repeat-concurrent 10 /some/api`, the CLI would make 10 concurrent requests 10 times in a row.  
 
 # dependencies
 
