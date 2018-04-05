@@ -30,18 +30,22 @@ func (s *stringSlice) Set(value string) error {
 	return nil
 }
 
+// VERSION references the current CLI revision
+const VERSION = 0.3
+
 var (
 	reqHeaders stringSlice
 
-	config           = NewConfig()
-	methodFlag       = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
-	configFlag       = flag.String("c", ".gulp.yml", "The `configuration` file to use")
-	insecureFlag     = flag.Bool("k", false, "Insecure TLS communication")
-	responseOnlyFlag = flag.Bool("ro", false, "Only display the response body (default)")
-	successOnlyFlag  = flag.Bool("so", false, "Only display whether or not the request was successful")
-	verboseFlag      = flag.Bool("I", false, "Display the response body along with various headers")
-	repeatFlag       = flag.Int("repeat", 1, "Number of `iteration`s to submit the request")
-	groupFlag        = flag.Int("repeat-group", 1, "Number of `concurrent connections` when grouping")
+	config             = NewConfig()
+	methodFlag         = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
+	configFlag         = flag.String("c", ".gulp.yml", "The `configuration` file to use")
+	insecureFlag       = flag.Bool("k", false, "Insecure TLS communication")
+	responseOnlyFlag   = flag.Bool("ro", false, "Only display the response body (default)")
+	statusCodeOnlyFlag = flag.Bool("so", false, "Only display the response code")
+	verboseFlag        = flag.Bool("I", false, "Display the response body along with various headers")
+	repeatFlag         = flag.Int("repeat-times", 1, "Number of `iteration`s to submit the request")
+	concurrentFlag     = flag.Int("repeat-concurrent", 1, "Number of concurrent `connections` to use")
+	versionFlag        = flag.Bool("version", false, "Display the current client version")
 )
 
 func main() {
@@ -50,15 +54,24 @@ func main() {
 
 	config = loadConfiguration(*configFlag)
 	// Set the flag based on the configuration if none of the flags are set
-	if !*responseOnlyFlag && !*successOnlyFlag && !*verboseFlag {
+	if !*responseOnlyFlag && !*statusCodeOnlyFlag && !*verboseFlag {
 		switch config.Display {
-		case "success-only":
-			*successOnlyFlag = true
+		case "status-code-only":
+			*statusCodeOnlyFlag = true
 		case "verbose":
 			*verboseFlag = true
 		default:
 			*responseOnlyFlag = true
 		}
+	}
+
+	if *versionFlag {
+		PrintBlock(fmt.Sprintf(`thoom.Gulp
+version: %.1f
+author: Z.d.Peacock <zdp@thoomtech.com>
+link: https://github.com/thoom/gulp`, VERSION), nil)
+		fmt.Println()
+		os.Exit(0)
 	}
 
 	url := ""
@@ -91,11 +104,11 @@ func main() {
 	}
 
 	iteration := 0
-	for i := 0; i < *repeatFlag; i += *groupFlag {
+	for i := 0; i < *repeatFlag; i += *concurrentFlag {
 		var wg sync.WaitGroup
 
-		ci := *groupFlag
-		if i >= *groupFlag {
+		ci := *concurrentFlag
+		if i >= *concurrentFlag {
 			remaining := *repeatFlag - i
 			if remaining < ci {
 				ci = remaining
@@ -104,7 +117,7 @@ func main() {
 
 		for c := 0; c < ci; c++ {
 			wg.Add(1)
-			go func(url string, body string, i int) {
+			go func(url string, body string, i int, c int) {
 				defer wg.Done()
 				var startTimer, endTimer time.Time
 
@@ -113,7 +126,11 @@ func main() {
 
 				if *repeatFlag > 1 {
 					iteration++
-					PrintHeader(fmt.Sprintf("Iteration #%d", iteration), b)
+					if *verboseFlag {
+						PrintHeader(fmt.Sprintf("Iteration #%d", iteration), b)
+					} else {
+						fmt.Fprintf(b, "%d: ", iteration)
+					}
 				}
 
 				req := createRequest(*methodFlag, url, body, b)
@@ -128,7 +145,7 @@ func main() {
 				}
 
 				handleResponse(resp, endTimer.Sub(startTimer).Seconds(), b)
-			}(url, body, i)
+			}(url, body, i, c)
 		}
 		wg.Wait()
 	}
@@ -146,7 +163,7 @@ func createRequest(method string, url string, body string, writer io.Writer) *ht
 	}
 
 	// Set the default User-Agent
-	req.Header.Set("User-Agent", "thoom.Gulp/0.2")
+	req.Header.Set("User-Agent", fmt.Sprintf("thoom.Gulp/%.1f", VERSION))
 
 	// If the reader is empty, then we didn't have a post body
 	if reader != nil {
@@ -196,8 +213,8 @@ func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
 		writer = os.Stdout
 	}
 
-	if *successOnlyFlag {
-		fmt.Fprintln(writer, resp.StatusCode < 400)
+	if *statusCodeOnlyFlag {
+		fmt.Fprintln(writer, resp.StatusCode)
 		return
 	}
 
