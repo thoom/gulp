@@ -19,7 +19,7 @@ By default, the client will look for a `.gulp.yml` file in the current directory
 
 * __headers__: A map of request headers to be included in all requests. Individual headers can be overridden using the `-H` argument.
 
-* __display__: How to display responses. If not set, only the response body will be displayed. Allowed values are `verbose` and `status-code-only`. These can be overridden by the `-ro`, `-so`, and `-I` flags. 
+* __display__: How to display responses. If not set, only the response body will be displayed. Allowed values are `verbose` and `status-code-only`. These can be overridden by the `-ro`, `-sco`, and `-I` flags. 
 
 * __flags__: Options that can be turned on or off:
   * __use_color__: Whether or not to colorize verbose responses. Enabled by default.

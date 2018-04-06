@@ -31,7 +31,7 @@ func (s *stringSlice) Set(value string) error {
 }
 
 // VERSION references the current CLI revision
-const VERSION = 0.3
+const VERSION = 0.4
 
 var (
 	reqHeaders stringSlice
@@ -41,7 +41,7 @@ var (
 	configFlag         = flag.String("c", ".gulp.yml", "The `configuration` file to use")
 	insecureFlag       = flag.Bool("k", false, "Insecure TLS communication")
 	responseOnlyFlag   = flag.Bool("ro", false, "Only display the response body (default)")
-	statusCodeOnlyFlag = flag.Bool("so", false, "Only display the response code")
+	statusCodeOnlyFlag = flag.Bool("sco", false, "Only display the response code")
 	verboseFlag        = flag.Bool("I", false, "Display the response body along with various headers")
 	repeatFlag         = flag.Int("repeat-times", 1, "Number of `iteration`s to submit the request")
 	concurrentFlag     = flag.Int("repeat-concurrent", 1, "Number of concurrent `connections` to use")
@@ -52,18 +52,11 @@ func main() {
 	flag.Var(&reqHeaders, "H", "Set a `request` header")
 	flag.Parse()
 
+	// Load the custom configuration
 	config = loadConfiguration(*configFlag)
-	// Set the flag based on the configuration if none of the flags are set
-	if !*responseOnlyFlag && !*statusCodeOnlyFlag && !*verboseFlag {
-		switch config.Display {
-		case "status-code-only":
-			*statusCodeOnlyFlag = true
-		case "verbose":
-			*verboseFlag = true
-		default:
-			*responseOnlyFlag = true
-		}
-	}
+
+	// Make sure that the displayFlags are set appropriately
+	filterDisplayFlags()
 
 	if *versionFlag {
 		PrintBlock(fmt.Sprintf(`thoom.Gulp
@@ -294,4 +287,59 @@ func getPostBody() string {
 	}
 
 	return body
+}
+
+func filterDisplayFlags() {
+	displayFlags := 0
+	if *responseOnlyFlag {
+		displayFlags++
+	}
+
+	if *statusCodeOnlyFlag {
+		displayFlags++
+	}
+
+	if *verboseFlag {
+		displayFlags++
+	}
+
+	// If only one was set then we can just return
+	if displayFlags == 1 {
+		return
+	}
+
+	// If none were set, then use the configuration loaded
+	if displayFlags == 0 {
+		switch config.Display {
+		case "status-code-only":
+			*statusCodeOnlyFlag = true
+		case "verbose":
+			*verboseFlag = true
+		default:
+			*responseOnlyFlag = true
+		}
+		return
+	}
+
+	// If multiple were set, then we need to figure out which one was the last one set and use that instead
+	totalArgs := len(os.Args[1:])
+	*responseOnlyFlag = false
+	*statusCodeOnlyFlag = false
+	*verboseFlag = false
+	for i := totalArgs; i > 0; i-- {
+		switch os.Args[i] {
+		case "-ro":
+			*responseOnlyFlag = true
+			break
+		case "-sco":
+			*statusCodeOnlyFlag = true
+			break
+		case "-I":
+			*verboseFlag = true
+			break
+		default:
+			continue
+		}
+		break
+	}
 }
