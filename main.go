@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -189,10 +190,16 @@ func createRequest(method string, url string, body string, writer io.Writer) *ht
 		}
 
 		block := []string{fmt.Sprintf("%s %s", *methodFlag, url)}
-		for k, v := range req.Header {
-			for _, h := range v {
-				block = append(block, strings.ToUpper(k)+": "+h)
-			}
+		mk := make([]string, len(req.Header))
+		i := 0
+		for k := range req.Header {
+			mk[i] = k
+			i++
+		}
+		sort.Strings(mk)
+
+		for _, k := range mk {
+			block = append(block, strings.ToUpper(k)+": "+req.Header.Get(k))
 		}
 		output.PrintBlock(strings.Join(block, "\n"), writer)
 		fmt.Fprintln(writer)
@@ -219,12 +226,20 @@ func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
 	}
 
 	isJSON := false
-	for k, v := range resp.Header {
-		if k == "Content-Type" && strings.Contains(strings.Join(v, ","), "json") {
+	mk := make([]string, len(resp.Header))
+	i := 0
+	for k := range resp.Header {
+		mk[i] = k
+		i++
+	}
+	sort.Strings(mk)
+
+	for _, k := range mk {
+		if k == "Content-Type" && strings.Contains(resp.Header.Get(k), "json") {
 			isJSON = true
 		}
 		if *verboseFlag {
-			fmt.Fprintln(writer, strings.ToUpper(k)+": "+strings.Join(v, ","))
+			fmt.Fprintln(writer, strings.ToUpper(k)+": "+resp.Header.Get(k))
 		}
 	}
 
@@ -250,16 +265,16 @@ func getPostBody() string {
 
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
 		scanner := bufio.NewScanner(os.Stdin)
-		stdin := ""
+		var stdin []byte
 		for scanner.Scan() {
-			stdin += scanner.Text() + "\n"
+			stdin = append(append(stdin, scanner.Bytes()...), []byte("\n")...)
 		}
 
 		if err := scanner.Err(); err != nil {
 			output.ExitErr("Reading standard input", err)
 		}
 
-		j, err := yaml.YAMLToJSON([]byte(stdin))
+		j, err := yaml.YAMLToJSON(stdin)
 		if err != nil {
 			output.ExitErr("Could not parse post body", err)
 		}
