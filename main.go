@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -16,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	"./client"
 	"./config"
 	"./output"
 	"github.com/ghodss/yaml"
@@ -97,7 +97,7 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 		if *verboseFlag {
 			output.PrintWarning("TLS checking is disabled for this request", nil)
 		}
-		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+		client.DisableTLSVerification()
 	}
 
 	// Don't get the post body if it's a GET/HEAD request
@@ -122,7 +122,7 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 			wg.Add(1)
 			go func(url string, body string, i int, c int) {
 				defer wg.Done()
-				var startTimer, endTimer time.Time
+				var startTimer time.Time
 
 				b := &bytes.Buffer{}
 				defer fmt.Print(b)
@@ -136,76 +136,63 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 					}
 				}
 
-				req := createRequest(*methodFlag, url, body, b)
-				client := &http.Client{}
+				headers := buildHeaders(reqHeaders, body != "")
+				req, err := client.CreateRequest(*methodFlag, url, body, headers)
+				if err != nil {
+					output.ExitErr("%", err)
+				}
+
+				if *verboseFlag && req != nil {
+					block := []string{fmt.Sprintf("%s %s", *methodFlag, url)}
+					mk := make([]string, len(headers))
+					i := 0
+					for k := range headers {
+						mk[i] = k
+						i++
+					}
+					sort.Strings(mk)
+
+					for _, k := range mk {
+						block = append(block, strings.ToUpper(k)+": "+headers[k])
+					}
+					output.PrintBlock(strings.Join(block, "\n"), b)
+					fmt.Fprintln(b)
+				}
 
 				startTimer = time.Now()
-				resp, err := client.Do(req)
-				endTimer = time.Now()
-
+				resp, err := client.CreateResponse(req)
 				if err != nil {
 					output.ExitErr("Something unexpected happened", err)
 				}
 
-				handleResponse(resp, endTimer.Sub(startTimer).Seconds(), b)
+				handleResponse(resp, time.Now().Sub(startTimer).Seconds(), b)
 			}(url, body, i, c)
 		}
 		wg.Wait()
 	}
 }
 
-func createRequest(method string, url string, body string, writer io.Writer) *http.Request {
-	var reader io.Reader
-	if body != "" {
-		reader = strings.NewReader(body)
-	}
-
-	req, err := http.NewRequest(method, url, reader)
-	if err != nil {
-		output.ExitErr("Could not build request", err)
-	}
+func buildHeaders(reqHeaders []string, includeJSON bool) map[string]string {
+	headers := make(map[string]string)
 
 	// Set the default User-Agent and Accept type
-	req.Header.Set("User-Agent", fmt.Sprintf("thoom.Gulp/%s", VERSION))
-	req.Header.Set("Accept", "application/json;q=1.0, */*;q=0.8")
+	headers["USER-AGENT"] = fmt.Sprintf("thoom.Gulp/%s", VERSION)
+	headers["ACCEPT"] = "application/json;q=1.0, */*;q=0.8"
 
-	// If the reader is empty, then we didn't have a post body
-	if reader != nil {
-		// We onlly allow json bodies
-		req.Header.Set("Content-Type", "application/json")
+	if includeJSON {
+		headers["CONTENT-TYPE"] = "application/json"
 	}
 
 	for k, v := range gulpConfig.Headers {
-		req.Header.Set(k, v)
+		headers[strings.ToUpper(k)] = v
 	}
 
 	for _, header := range reqHeaders {
 		pieces := strings.Split(header, ":")
-		req.Header.Set(pieces[0], strings.TrimSpace(pieces[1]))
+		headers[strings.ToUpper(pieces[0])] = strings.TrimSpace(pieces[1])
 	}
 
-	if *verboseFlag {
-		if writer == nil {
-			writer = os.Stdout
-		}
-
-		block := []string{fmt.Sprintf("%s %s", *methodFlag, url)}
-		mk := make([]string, len(req.Header))
-		i := 0
-		for k := range req.Header {
-			mk[i] = k
-			i++
-		}
-		sort.Strings(mk)
-
-		for _, k := range mk {
-			block = append(block, strings.ToUpper(k)+": "+req.Header.Get(k))
-		}
-		output.PrintBlock(strings.Join(block, "\n"), writer)
-		fmt.Fprintln(writer)
-	}
-
-	return req
+	return headers
 }
 
 func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
