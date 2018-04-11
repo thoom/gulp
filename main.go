@@ -31,12 +31,12 @@ func (s *stringSlice) Set(value string) error {
 }
 
 // VERSION references the current CLI revision
-const VERSION = 0.4
+const VERSION = "0.4"
 
 var (
 	reqHeaders stringSlice
 
-	config             = NewConfig()
+	config             = NewConfig
 	methodFlag         = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
 	configFlag         = flag.String("c", ".gulp.yml", "The `configuration` file to use")
 	insecureFlag       = flag.Bool("k", false, "Insecure TLS communication")
@@ -53,14 +53,14 @@ func main() {
 	flag.Parse()
 
 	// Load the custom configuration
-	config = loadConfiguration(*configFlag)
+	config = LoadConfiguration(*configFlag)
 
 	// Make sure that the displayFlags are set appropriately
 	filterDisplayFlags()
 
 	if *versionFlag {
 		PrintBlock(fmt.Sprintf(`thoom.Gulp
-version: %.1f
+version: %s
 author: Z.d.Peacock <zdp@thoomtech.com>
 link: https://github.com/thoom/gulp`, VERSION), nil)
 		fmt.Println()
@@ -155,8 +155,9 @@ func createRequest(method string, url string, body string, writer io.Writer) *ht
 		ExitErr("Could not build request", err)
 	}
 
-	// Set the default User-Agent
-	req.Header.Set("User-Agent", fmt.Sprintf("thoom.Gulp/%.1f", VERSION))
+	// Set the default User-Agent and Accept type
+	req.Header.Set("User-Agent", fmt.Sprintf("thoom.Gulp/%s", VERSION))
+	req.Header.Set("Accept", "application/json;q=1.0, */*;q=0.8")
 
 	// If the reader is empty, then we didn't have a post body
 	if reader != nil {
@@ -220,7 +221,7 @@ func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
 
 	isJSON := false
 	for k, v := range resp.Header {
-		if k == "Content-Type" && strings.Contains(strings.Join(v, ","), "application/json") {
+		if k == "Content-Type" && strings.Contains(strings.Join(v, ","), "json") {
 			isJSON = true
 		}
 		if *verboseFlag {
@@ -242,25 +243,6 @@ func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
 	}
 
 	fmt.Fprintln(writer, string(body))
-}
-
-func loadConfiguration(fileName string) GulpConfig {
-	dat, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		// If the file wasn't found and it's just the default, don't worry about it.
-		if fileName == ".gulp.yml" {
-			return config
-		}
-
-		ExitErr(fmt.Sprintf("Could not load configuration '%s'", fileName), nil)
-	}
-
-	var gulpConfig GulpConfig
-	if yaml.Unmarshal(dat, &gulpConfig) != nil {
-		ExitErr("Could not parse configuration", nil)
-	}
-
-	return gulpConfig
 }
 
 func getPostBody() string {
