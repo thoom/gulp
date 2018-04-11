@@ -24,7 +24,7 @@ By default, the client will look for a `.gulp.yml` file in the current directory
 * __flags__: Options that can be turned on or off:
   * __use_color__: Whether or not to colorize verbose responses. Enabled by default.
 
-  * __tls_verify__: Whether or not to check TLS certificates. Enabled by default. Can be overridden by the `-k` flag.
+  * __verify_tls__: Whether or not to check TLS certificates. Enabled by default. Can be overridden by the `-k` flag.
 
 ## payload
 

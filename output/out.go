@@ -1,4 +1,4 @@
-package main
+package output
 
 import (
 	"fmt"
@@ -9,10 +9,15 @@ import (
 	"github.com/fatih/color"
 )
 
+var (
+	// UseColor will either output in color or not
+	UseColor = true
+)
+
 // PrintWarning outputs a warning
 func PrintWarning(txt string, writer io.Writer) {
 	txt = fmt.Sprintf("WARNING: %s ", strings.ToUpper(txt))
-	if config.UseColor() {
+	if UseColor {
 		txt = color.New(color.FgHiYellow, color.Bold).Sprintf(txt)
 	}
 
@@ -25,7 +30,7 @@ func PrintWarning(txt string, writer io.Writer) {
 
 // PrintStoplight will print out red if stopped is true, green if not
 func PrintStoplight(txt string, stopped bool, writer io.Writer) {
-	if config.UseColor() {
+	if UseColor {
 		c := color.FgHiGreen
 		if stopped {
 			c = color.FgHiRed
@@ -43,7 +48,7 @@ func PrintStoplight(txt string, stopped bool, writer io.Writer) {
 
 // PrintHeader prints out the header
 func PrintHeader(txt string, writer io.Writer) {
-	if config.UseColor() {
+	if UseColor {
 		txt = color.New(color.FgHiCyan, color.Bold).Sprintf(fmt.Sprintf("\n%s\n", txt))
 	}
 
@@ -56,7 +61,7 @@ func PrintHeader(txt string, writer io.Writer) {
 // PrintBlock prints out a block of code with the same background
 func PrintBlock(block string, writer io.Writer) {
 	txt := ""
-	if config.UseColor() {
+	if UseColor {
 		pieces := strings.Split(block, "\n")
 		max := 0
 		for _, v := range pieces {
@@ -102,7 +107,7 @@ func ExitErr(txt string, err error) {
 		txt = fmt.Sprintf(txt+": ", err)
 	}
 
-	if config.UseColor() {
+	if UseColor {
 		c := color.New(color.FgHiWhite, color.BgHiRed)
 		txt = c.Sprintf(txt)
 	}

@@ -15,6 +15,8 @@ import (
 	"sync"
 	"time"
 
+	"./config"
+	"./output"
 	"github.com/ghodss/yaml"
 )
 
@@ -36,7 +38,7 @@ const VERSION = "0.4"
 var (
 	reqHeaders stringSlice
 
-	config             = NewConfig
+	gulpConfig         = config.New
 	methodFlag         = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
 	configFlag         = flag.String("c", ".gulp.yml", "The `configuration` file to use")
 	insecureFlag       = flag.Bool("k", false, "Insecure TLS communication")
@@ -53,13 +55,20 @@ func main() {
 	flag.Parse()
 
 	// Load the custom configuration
-	config = LoadConfiguration(*configFlag)
+	loadedConfig, err := config.LoadConfiguration(*configFlag)
+	if err != nil {
+		output.ExitErr(fmt.Sprintf("%s", err), nil)
+	}
+
+	// Set the main config to the one that was loaded
+	gulpConfig = loadedConfig
+	output.UseColor = gulpConfig.UseColor()
 
 	// Make sure that the displayFlags are set appropriately
 	filterDisplayFlags()
 
 	if *versionFlag {
-		PrintBlock(fmt.Sprintf(`thoom.Gulp
+		output.PrintBlock(fmt.Sprintf(`thoom.Gulp
 version: %s
 author: Z.d.Peacock <zdp@thoomtech.com>
 link: https://github.com/thoom/gulp`, VERSION), nil)
@@ -75,17 +84,17 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 
 	if strings.HasPrefix(path, "http") {
 		url = path
-	} else if config.URL != "" {
-		url = config.URL + path
+	} else if gulpConfig.URL != "" {
+		url = gulpConfig.URL + path
 	}
 
 	if url == "" {
-		ExitErr("Need a URL to make a request", nil)
+		output.ExitErr("Need a URL to make a request", nil)
 	}
 
-	if *insecureFlag || !config.TLSVerify() {
+	if *insecureFlag || !gulpConfig.TLSVerify() {
 		if *verboseFlag {
-			PrintWarning("TLS checking is disabled for this request", nil)
+			output.PrintWarning("TLS checking is disabled for this request", nil)
 		}
 		http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
@@ -120,7 +129,7 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 				if *repeatFlag > 1 {
 					iteration++
 					if *verboseFlag {
-						PrintHeader(fmt.Sprintf("Iteration #%d", iteration), b)
+						output.PrintHeader(fmt.Sprintf("Iteration #%d", iteration), b)
 					} else {
 						fmt.Fprintf(b, "%d: ", iteration)
 					}
@@ -134,7 +143,7 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 				endTimer = time.Now()
 
 				if err != nil {
-					ExitErr("Something unexpected happened", err)
+					output.ExitErr("Something unexpected happened", err)
 				}
 
 				handleResponse(resp, endTimer.Sub(startTimer).Seconds(), b)
@@ -152,7 +161,7 @@ func createRequest(method string, url string, body string, writer io.Writer) *ht
 
 	req, err := http.NewRequest(method, url, reader)
 	if err != nil {
-		ExitErr("Could not build request", err)
+		output.ExitErr("Could not build request", err)
 	}
 
 	// Set the default User-Agent and Accept type
@@ -165,7 +174,7 @@ func createRequest(method string, url string, body string, writer io.Writer) *ht
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	for k, v := range config.Headers {
+	for k, v := range gulpConfig.Headers {
 		req.Header.Set(k, v)
 	}
 
@@ -185,18 +194,8 @@ func createRequest(method string, url string, body string, writer io.Writer) *ht
 				block = append(block, strings.ToUpper(k)+": "+h)
 			}
 		}
-		PrintBlock(strings.Join(block, "\n"), writer)
+		output.PrintBlock(strings.Join(block, "\n"), writer)
 		fmt.Fprintln(writer)
-
-		// Output the post body if one was passed in
-		// if reader != nil {
-		// 	var prettyJSON bytes.Buffer
-		// 	err := json.Indent(&prettyJSON, []byte(body), "", "  ")
-		// 	if err == nil {
-		// 		// Don't worry about pretty-printing if we got an error
-		// 		fmt.Println(string(prettyJSON.Bytes()) + "\n")
-		// 	}
-		// }
 	}
 
 	return req
@@ -216,7 +215,7 @@ func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
 	body, _ := ioutil.ReadAll(resp.Body)
 
 	if *verboseFlag {
-		PrintStoplight(fmt.Sprintf("Status: %s (%.2f seconds)\n", resp.Status, duration), resp.StatusCode >= 400, writer)
+		output.PrintStoplight(fmt.Sprintf("Status: %s (%.2f seconds)\n", resp.Status, duration), resp.StatusCode >= 400, writer)
 	}
 
 	isJSON := false
@@ -257,12 +256,12 @@ func getPostBody() string {
 		}
 
 		if err := scanner.Err(); err != nil {
-			ExitErr("Reading standard input", err)
+			output.ExitErr("Reading standard input", err)
 		}
 
 		j, err := yaml.YAMLToJSON([]byte(stdin))
 		if err != nil {
-			ExitErr("Could not parse post body", err)
+			output.ExitErr("Could not parse post body", err)
 		}
 
 		body = string(j)
@@ -292,7 +291,7 @@ func filterDisplayFlags() {
 
 	// If none were set, then use the configuration loaded
 	if displayFlags == 0 {
-		switch config.Display {
+		switch gulpConfig.Display {
 		case "status-code-only":
 			*statusCodeOnlyFlag = true
 		case "verbose":
