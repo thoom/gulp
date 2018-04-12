@@ -77,20 +77,9 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 		os.Exit(0)
 	}
 
-	url := ""
-	path := ""
-	if len(flag.Args()) > 0 {
-		path = flag.Args()[0]
-	}
-
-	if strings.HasPrefix(path, "http") {
-		url = path
-	} else if gulpConfig.URL != "" {
-		url = gulpConfig.URL + path
-	}
-
-	if url == "" {
-		output.ExitErr("Need a URL to make a request", nil)
+	url, err := buildURL()
+	if err != nil {
+		output.ExitErr("", err)
 	}
 
 	if *insecureFlag || !gulpConfig.VerifyTLS() {
@@ -174,6 +163,31 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 		}
 		wg.Wait()
 	}
+}
+
+func buildURL() (string, error) {
+	url := ""
+	path := ""
+	if len(flag.Args()) > 0 {
+		path = flag.Args()[0]
+	}
+
+	var err error
+	if strings.HasPrefix(path, "http") {
+		url = path
+	} else if gulpConfig.URL != "" {
+		url = gulpConfig.URL + path
+	}
+
+	if url == "" {
+		if path == "" {
+			err = fmt.Errorf("Need a URL to make a request")
+		} else {
+			err = fmt.Errorf("Invalid URL")
+		}
+	}
+
+	return url, err
 }
 
 func buildHeaders(reqHeaders []string, includeJSON bool) (map[string]string, error) {
