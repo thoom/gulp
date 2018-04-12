@@ -28,7 +28,7 @@ By default, the client will look for a `.gulp.yml` file in the current directory
 
 ## payload
 
-You can use either JSON or YAML as a payload to a posted endpoint. Some advantages include being able to have comments and not requiring superfluous usage of curly braces and quotation marks.
+You can use either JSON or YAML as a payload to a posted endpoint. Some advantages to using YAML instead of JSON include being able to have comments and not requiring superfluous usage of curly braces and quotation marks.
 
 The command to post data: `gulp -m POST https://api.ex.io/message < postData.yml`
 
@@ -46,6 +46,7 @@ There are 2 command line flags that can be used as a poor-man's load testing/thr
 
     github.com/fatih/color
     github.com/ghodss/yaml
+    github.com/stretchr/testify (tests only)
     
 # install
 
