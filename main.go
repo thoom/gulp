@@ -136,7 +136,11 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 					}
 				}
 
-				headers := buildHeaders(reqHeaders, body != "")
+				headers, err := buildHeaders(reqHeaders, body != "")
+				if err != nil {
+					output.ExitErr("", err)
+				}
+
 				req, err := client.CreateRequest(*methodFlag, url, body, headers)
 				if err != nil {
 					output.ExitErr("", err)
@@ -172,7 +176,7 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 	}
 }
 
-func buildHeaders(reqHeaders []string, includeJSON bool) map[string]string {
+func buildHeaders(reqHeaders []string, includeJSON bool) (map[string]string, error) {
 	headers := make(map[string]string)
 
 	// Set the default User-Agent and Accept type
@@ -189,10 +193,14 @@ func buildHeaders(reqHeaders []string, includeJSON bool) map[string]string {
 
 	for _, header := range reqHeaders {
 		pieces := strings.Split(header, ":")
+		if len(pieces) != 2 {
+			return nil, fmt.Errorf("Could not parse header: '%s'", header)
+		}
+
 		headers[strings.ToUpper(pieces[0])] = strings.TrimSpace(pieces[1])
 	}
 
-	return headers
+	return headers, nil
 }
 
 func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
