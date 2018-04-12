@@ -1,4 +1,4 @@
-# gulp
+# gulp [![Build Status](https://travis-ci.org/thoom/gulp.svg?branch=master)](https://travis-ci.org/thoom/gulp)
 
 Gulp is a CLI-based HTTP client for JSON-based APIs. While it's possible to send/receive payloads other than JSON, the client
 provides defaults and enhancements for JSON requests and responses.
