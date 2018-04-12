@@ -6,8 +6,8 @@ import (
 	"os"
 	"testing"
 
-	"./config"
 	"github.com/stretchr/testify/assert"
+	"github.com/thoom/gulp/config"
 )
 
 func TestBuildURLBasic(t *testing.T) {
