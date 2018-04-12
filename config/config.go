@@ -31,8 +31,8 @@ func (gc Config) UseColor() bool {
 	return gc.Flags["use_color"] != "false"
 }
 
-// TLSVerify determines whether or not to verify that a TLS cert is valid
-func (gc Config) TLSVerify() bool {
+// VerifyTLS determines whether or not to verify that a TLS cert is valid
+func (gc Config) VerifyTLS() bool {
 	return gc.Flags["verify_tls"] != "false"
 }
 

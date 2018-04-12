@@ -93,7 +93,7 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 		output.ExitErr("Need a URL to make a request", nil)
 	}
 
-	if *insecureFlag || !gulpConfig.TLSVerify() {
+	if *insecureFlag || !gulpConfig.VerifyTLS() {
 		if *verboseFlag {
 			output.PrintWarning("TLS checking is disabled for this request", nil)
 		}
