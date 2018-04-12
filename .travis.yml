@@ -3,7 +3,10 @@ language: go
 go:
   - "1.10"
 
-deploy:
+services:
+  - docker
+
+  deploy:
   - provider: script
     script: scripts/deploy.sh
     on:
