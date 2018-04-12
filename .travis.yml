@@ -13,7 +13,7 @@ deploy:
       - gulp-alpine
       - gulp-linux-386
       - gulp-linux-amd64
-      - gulp-linux-darwin
+      - gulp-darwin
     skip_cleanup: true
     on:
       branch: master
