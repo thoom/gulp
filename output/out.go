@@ -18,7 +18,7 @@ var (
 func PrintWarning(txt string, writer io.Writer) {
 	txt = fmt.Sprintf("WARNING: %s ", strings.ToUpper(txt))
 	if UseColor {
-		txt = color.New(color.FgHiYellow, color.Bold).Sprintf(txt)
+		txt = color.New(color.FgYellow, color.Bold).Sprintf(txt)
 	}
 
 	if writer == nil {
@@ -31,9 +31,9 @@ func PrintWarning(txt string, writer io.Writer) {
 // PrintStoplight will print out red if stopped is true, green if not
 func PrintStoplight(txt string, stopped bool, writer io.Writer) {
 	if UseColor {
-		c := color.FgHiGreen
+		c := color.FgGreen
 		if stopped {
-			c = color.FgHiRed
+			c = color.FgRed
 		}
 
 		txt = color.New(c).Sprintf(txt)
@@ -49,7 +49,7 @@ func PrintStoplight(txt string, stopped bool, writer io.Writer) {
 // PrintHeader prints out the header
 func PrintHeader(txt string, writer io.Writer) {
 	if UseColor {
-		txt = color.New(color.FgHiCyan, color.Bold).Sprintf(fmt.Sprintf("\n%s\n", txt))
+		txt = color.New(color.FgCyan, color.Bold).Sprintf(fmt.Sprintf("\n%s\n", txt))
 	}
 
 	if writer == nil {
@@ -86,9 +86,13 @@ func PrintBlock(block string, writer io.Writer) {
 				continue
 			}
 
+			if UseColor {
+				v = color.New(color.FgBlack, color.BgCyan).Sprintf(v)
+			}
+
 			formatted = append(formatted, v)
 		}
-		txt = color.New(color.FgBlack, color.BgHiCyan).Sprintf(strings.Join(formatted, "\n"))
+		txt = strings.Join(formatted, "\n")
 	} else {
 		txt = block
 	}
@@ -111,7 +115,7 @@ func PrintErr(txt string, err error, writer io.Writer) {
 	}
 
 	if UseColor {
-		c := color.New(color.FgHiWhite, color.BgHiRed)
+		c := color.New(color.FgWhite, color.BgRed)
 		txt = c.Sprintf(txt)
 	}
 

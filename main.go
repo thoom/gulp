@@ -34,7 +34,7 @@ func (s *stringSlice) Set(value string) error {
 }
 
 // VERSION references the current CLI revision
-const VERSION = "0.4"
+const VERSION = "0.5"
 
 var (
 	reqHeaders stringSlice
