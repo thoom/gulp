@@ -15,10 +15,10 @@ import (
 	"sync"
 	"time"
 
-	"./client"
-	"./config"
-	"./output"
 	"github.com/ghodss/yaml"
+	"github.com/thoom/gulp/client"
+	"github.com/thoom/gulp/config"
+	"github.com/thoom/gulp/output"
 )
 
 type stringSlice []string
