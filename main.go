@@ -58,7 +58,7 @@ func main() {
 	// Load the custom configuration
 	loadedConfig, err := config.LoadConfiguration(*configFlag)
 	if err != nil {
-		output.ExitErr(fmt.Sprintf("%s", err), nil)
+		output.ExitErr("", err)
 	}
 
 	// Set the main config to the one that was loaded
@@ -139,7 +139,7 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 				headers := buildHeaders(reqHeaders, body != "")
 				req, err := client.CreateRequest(*methodFlag, url, body, headers)
 				if err != nil {
-					output.ExitErr("%", err)
+					output.ExitErr("", err)
 				}
 
 				if *verboseFlag && req != nil {

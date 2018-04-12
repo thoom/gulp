@@ -83,7 +83,6 @@ func PrintBlock(block string, writer io.Writer) {
 			v = fmt.Sprintf("%s%s ", v, padding)
 			if i == 0 {
 				PrintHeader(v, writer)
-				// fmt.Println(color.New(color.FgHiCyan, color.Bold).Sprintf(v))
 				continue
 			}
 
@@ -101,10 +100,14 @@ func PrintBlock(block string, writer io.Writer) {
 	fmt.Fprintln(writer, txt)
 }
 
-// ExitErr prints out an error and quits
-func ExitErr(txt string, err error) {
+// PrintErr prints out the text to Stderr
+func PrintErr(txt string, err error, writer io.Writer) {
 	if err != nil {
-		txt = fmt.Sprintf(txt+": ", err)
+		if txt != "" {
+			txt = fmt.Sprintf(txt+": %s", err)
+		} else {
+			txt = fmt.Sprintf("%s", err)
+		}
 	}
 
 	if UseColor {
@@ -112,6 +115,15 @@ func ExitErr(txt string, err error) {
 		txt = c.Sprintf(txt)
 	}
 
-	fmt.Fprintln(os.Stderr, txt)
+	if writer == nil {
+		writer = os.Stderr
+	}
+
+	fmt.Fprintln(writer, txt)
+}
+
+// ExitErr prints out an error and quits
+func ExitErr(txt string, err error) {
+	PrintErr(txt, err, nil)
 	os.Exit(1)
 }
