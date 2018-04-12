@@ -15,7 +15,10 @@ deploy:
       - gulp-linux-amd64
       - gulp-linux-darwin
     skip_cleanup: true
+    on:
+      branch: master
   - provider: script
     script: scripts/deploy.sh
+    skip_cleanup: true
     on:
       branch: master
