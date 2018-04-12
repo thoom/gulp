@@ -6,7 +6,7 @@ go:
 services:
   - docker
 
-  deploy:
+deploy:
   - provider: script
     script: scripts/deploy.sh
     on:
