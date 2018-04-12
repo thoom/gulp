@@ -16,9 +16,9 @@ deploy:
       - gulp-darwin
     skip_cleanup: true
     on:
-      branch: master
+      tags: true
   - provider: script
     script: scripts/deploy.sh
     skip_cleanup: true
     on:
-      branch: master
+      tags: true
