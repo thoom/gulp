@@ -17,7 +17,7 @@ For instance, a sample YAML configuration file:
 	flags:
 	  use_color: true
 
-It's JSON equivalent:
+Its JSON equivalent:
 
 	{
 	  "url": "https://api.github.com",
@@ -79,7 +79,9 @@ and it has the `url` field defined (as seen above), then it will take the _[PATH
 cli and concatinate it with the _URL_. This was seen in the previous example.
 
 If the _[PATH]_ starts with `http`, then the cli will ignore the _URL_ in the config file.
+
 If the _[PATH]_ is empty, then the cli will just use the _URL_.
+
 If both are empty, then an error is returned.
 
 ## Configuration
@@ -104,7 +106,7 @@ Use the `-c` argument to load a different configuration file.
 
 * __flags__: Options that can be turned on or off:
   * __use_color__: Whether or not to colorize verbose responses. Enabled by default.
-
+  
   * __verify_tls__: Whether or not to check TLS certificates. Enabled by default. Can be overridden by the `-k` flag.
 
 ## POST Payload
@@ -117,7 +119,7 @@ The command to post data: `gulp -m POST https://api.ex.io/message < postData.yml
 There are 2 command line flags that can be used as a poor-man's load testing/throttling service:
 
  * __-repeat-times__: The number of times to submit a request.
-
+ 
  * __-repeat-concurrent__: The number of concurrent connections to use to submit the request.
 
  For example, if you ran `gulp -repeat-times 100 -repeat-concurrent 10 /some/api`, 
