@@ -12,22 +12,22 @@ For instance, a sample YAML configuration file:
 	# Some comment here...
 	url: https://api.github.com
 	headers:
-		X-Example-Header: abc123def
-		X-Example-Header2: ghi456jkl
+	  X-Example-Header: abc123def
+	  X-Example-Header2: ghi456jkl
 	flags:
-		use_color: true
+	  use_color: true
 
 It's JSON equivalent:
 
 	{
-		"url": "https://api.github.com",
-		"headers": [{
-				"X-Example-Header": "abc123def",
-				"X-Example-Header2": "ghi456jkl"
-			}],
-		"flags": {
-			"use_color": true
-		}
+	  "url": "https://api.github.com",
+	  "headers": [{
+	    "X-Example-Header": "abc123def",
+	    "X-Example-Header2": "ghi456jkl"
+	  }],
+	  "flags": {
+	    "use_color": true
+	  }
 	}
 
 Gulp uses YAML/JSON for:
@@ -49,15 +49,9 @@ There are several ways to download and install the `gulp` client.
 
 ### Releases
 
-Download the appropriate binary from the [https://github.com/thoom/gulp/releases](Github releases) section.
+Download the appropriate binary from the [Github releases](https://github.com/thoom/gulp/releases) section.
 
-## Library Dependencies
-
-	github.com/fatih/color
-	github.com/ghodss/yaml
-	github.com/stretchr/testify (tests only)
-
-
+## Usage
 Once installed, the client is easy to use without extra configuration. 
 For instance to get user _foo_'s data from the Github API:
 
@@ -127,6 +121,12 @@ There are 2 command line flags that can be used as a poor-man's load testing/thr
  * __-repeat-concurrent__: The number of concurrent connections to use to submit the request.
 
  For example, if you ran `gulp -repeat-times 100 -repeat-concurrent 10 /some/api`, 
- the CLI would make 10 concurrent requests 10 times in a row.  
+ the CLI would make 10 concurrent requests 10 times in a row.
+ 
+ ## Library Dependencies
+
+	github.com/fatih/color
+	github.com/ghodss/yaml
+	github.com/stretchr/testify (tests only)
 
     
