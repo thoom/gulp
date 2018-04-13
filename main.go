@@ -34,7 +34,7 @@ func (s *stringSlice) Set(value string) error {
 }
 
 // VERSION references the current CLI revision
-const VERSION = "0.5"
+const VERSION = "0.6"
 
 var (
 	reqHeaders stringSlice
@@ -46,6 +46,7 @@ var (
 	responseOnlyFlag   = flag.Bool("ro", false, "Only display the response body (default)")
 	statusCodeOnlyFlag = flag.Bool("sco", false, "Only display the response code")
 	verboseFlag        = flag.Bool("I", false, "Display the response body along with various headers")
+	noColorFlag        = flag.Bool("no-color", false, "Disables color output for the request")
 	repeatFlag         = flag.Int("repeat-times", 1, "Number of `iteration`s to submit the request")
 	concurrentFlag     = flag.Int("repeat-concurrent", 1, "Number of concurrent `connections` to use")
 	versionFlag        = flag.Bool("version", false, "Display the current client version")
@@ -63,7 +64,11 @@ func main() {
 
 	// Set the main config to the one that was loaded
 	gulpConfig = loadedConfig
-	output.UseColor = gulpConfig.UseColor()
+
+	// Disable color output for the request
+	if *noColorFlag || !gulpConfig.UseColor() {
+		output.NoColor(true)
+	}
 
 	// Make sure that the displayFlags are set appropriately
 	filterDisplayFlags()
