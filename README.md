@@ -21,10 +21,10 @@ Its JSON equivalent:
 
 	{
 	  "url": "https://api.github.com",
-	  "headers": [{
+	  "headers": {
 	    "X-Example-Header": "abc123def",
 	    "X-Example-Header2": "ghi456jkl"
-	  }],
+	  },
 	  "flags": {
 	    "use_color": true
 	  }
@@ -71,16 +71,15 @@ Now you can just call:
 
 	gulp -I /users/foo
 
-This exposes a concept in `gulp` of the format of a URL. In `gulp`, the URL is made up 
-of 2 parts: the _URL_ and the _Path_.
+This exposes how the client builds the final URL from 2 parts: the _config.URL_ and the _Path_.
 
-The cli is technically in the format `gulp [FLAGS] [PATH]`. If a configuration file exists,
-and it has the `url` field defined (as seen above), then it will take the _[PATH]_ from the 
-cli and concatinate it with the _URL_. This was seen in the previous example.
+The cli format is technically in the format `gulp [FLAGS] [PATH]`. If a configuration file exists,
+and it has the `url` (_confing.URL_) field defined (as seen above), then it will take the _[PATH]_ from the 
+cli and concatinate it with the _config.URL_. This was seen in the previous example.
 
-If the _[PATH]_ starts with `http`, then the cli will ignore the _URL_ in the config file.
+If the _[PATH]_ starts with `http`, then the client will ignore the _config.URL_.
 
-If the _[PATH]_ is empty, then the cli will just use the _URL_.
+If the _[PATH]_ is empty, then the client will just use the _config.URL_.
 
 If both are empty, then an error is returned.
 
@@ -105,9 +104,11 @@ Use the `-c` argument to load a different configuration file.
 	These can be overridden by the `-ro`, `-sco`, and `-I` cli flags. 
 
 * __flags__: Options that can be turned on or off:
-  * __use_color__: Whether or not to colorize verbose responses. Enabled by default.
+  * __use_color__: Whether or not to colorize verbose responses. 
+	Enabled by default. Can be disabled with the `-no-color` flag.
   
-  * __verify_tls__: Whether or not to check TLS certificates. Enabled by default. Can be overridden by the `-k` flag.
+  * __verify_tls__: Whether or not to check TLS certificates. 
+	Enabled by default. Can be disabled with the `-k` flag.
 
 ## POST Payload
 
