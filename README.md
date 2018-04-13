@@ -7,11 +7,11 @@ Gulp is built around 2 concepts using JSON/YAML:
 1. configuration
 2. payload
 
-## configuration
+## Configuration
 
 By default, the client will look for a `.gulp.yml` file in the current directory. If found, it will include the following options as part of every request. Use the `-c` argument to load a different configuration file.
 
-### config options
+### YAML Configuration Options
 
 * __url__: The url to use with requests. Setting this configuration option allows for simplified paths in the command line. It can be overridden if the last argument in the command starts with `http`.  
 
@@ -26,13 +26,13 @@ By default, the client will look for a `.gulp.yml` file in the current directory
 
   * __verify_tls__: Whether or not to check TLS certificates. Enabled by default. Can be overridden by the `-k` flag.
 
-## payload
+## POST Payload
 
 You can use either JSON or YAML as a payload to a posted endpoint. Some advantages to using YAML instead of JSON include being able to have comments and not requiring superfluous usage of curly braces and quotation marks.
 
 The command to post data: `gulp -m POST https://api.ex.io/message < postData.yml`
 
-## load testing
+## Load Testing
 
 There are 2 command line flags that can be used as a poor-man's load testing/throttling service:
 
@@ -42,18 +42,26 @@ There are 2 command line flags that can be used as a poor-man's load testing/thr
 
  For example, if you ran `gulp -repeat-times 100 -repeat-concurrent 10 /some/api`, the CLI would make 10 concurrent requests 10 times in a row.  
 
-# dependencies
-
-    github.com/fatih/color
-    github.com/ghodss/yaml
-    github.com/stretchr/testify (tests only)
     
-# install
+## Installation
 
-    go get github.com/thoom/gulp
+There are several ways to download and install the `gulp` client.
 
-# upgrade
+### Using Go
 
-    go get -u github.com/thoom/gulp
+		go get github.com/thoom/gulp
+
+### Using Docker
+
+		docker run --rm -it -v $PWD:/gulp thoom/gulp
+
+### Releases
+
+		Download the appropriate binary from the [https://github.com/thoom/gulp/releases](Github releases) section.
 
 
+# Library Dependencies
+
+		github.com/fatih/color
+		github.com/ghodss/yaml
+		github.com/stretchr/testify (tests only)
