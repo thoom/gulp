@@ -1,8 +1,9 @@
 FROM alpine
-
-WORKDIR /gulp
-COPY gulp-alpine ./
+LABEL author="Zach Peacock <zdp@thoomtech.com>"
 
 RUN apk --update --no-cache add ca-certificates
 
-ENTRYPOINT ["./gulp-alpine"]
+COPY gulp-alpine /usr/local/bin/gulp
+
+WORKDIR /gulp
+ENTRYPOINT ["gulp"]
