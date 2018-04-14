@@ -1,4 +1,4 @@
-# gulp [![Build Status](https://travis-ci.org/thoom/gulp.svg?branch=master)](https://travis-ci.org/thoom/gulp) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![Coverage Status](https://coveralls.io/repos/github/thoom/gulp/badge.svg?branch=master)](https://coveralls.io/github/thoom/gulp?branch=master)
+# gulp [![Build Status](https://travis-ci.org/thoom/gulp.svg?branch=master)](https://travis-ci.org/thoom/gulp) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![codecov](https://codecov.io/gh/thoom/gulp/branch/master/graph/badge.svg)](https://codecov.io/gh/thoom/gulp)
 
 Gulp is a YAML-oriented HTTP CLI client for JSON APIs. When interacting with an API, Gulp accepts
 either JSON or YAML. Since JSON is a subset of the YAML specification, YAML payloads are effortlessly
