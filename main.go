@@ -33,23 +33,22 @@ func (s *stringSlice) Set(value string) error {
 	return nil
 }
 
-// VERSION references the current CLI revision
-const VERSION = "0.6"
-
 var (
 	reqHeaders stringSlice
 
-	gulpConfig         = config.New
-	methodFlag         = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
-	configFlag         = flag.String("c", ".gulp.yml", "The `configuration` file to use")
-	insecureFlag       = flag.Bool("k", false, "Insecure TLS communication")
-	responseOnlyFlag   = flag.Bool("ro", false, "Only display the response body (default)")
-	statusCodeOnlyFlag = flag.Bool("sco", false, "Only display the response code")
-	verboseFlag        = flag.Bool("I", false, "Display the response body along with various headers")
-	noColorFlag        = flag.Bool("no-color", false, "Disables color output for the request")
-	repeatFlag         = flag.Int("repeat-times", 1, "Number of `iteration`s to submit the request")
-	concurrentFlag     = flag.Int("repeat-concurrent", 1, "Number of concurrent `connections` to use")
-	versionFlag        = flag.Bool("version", false, "Display the current client version")
+	gulpConfig          = config.New
+	methodFlag          = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
+	configFlag          = flag.String("c", ".gulp.yml", "The `configuration` file to use")
+	insecureFlag        = flag.Bool("k", false, "Insecure TLS communication")
+	responseOnlyFlag    = flag.Bool("ro", false, "Only display the response body (default)")
+	statusCodeOnlyFlag  = flag.Bool("sco", false, "Only display the response code")
+	verboseFlag         = flag.Bool("v", false, "Display the response body along with various headers")
+	noColorFlag         = flag.Bool("no-color", false, "Disables color output for the request")
+	followRedirectFlag  = flag.Bool("follow-redirect", false, "Enables following 3XX redirects")
+	disableRedirectFlag = flag.Bool("no-redirect", false, "Disables following 3XX redirects")
+	repeatFlag          = flag.Int("repeat-times", 1, "Number of `iteration`s to submit the request")
+	concurrentFlag      = flag.Int("repeat-concurrent", 1, "Number of concurrent `connections` to use")
+	versionFlag         = flag.Bool("version", false, "Display the current client version")
 )
 
 func main() {
@@ -74,25 +73,30 @@ func main() {
 	filterDisplayFlags()
 
 	if *versionFlag {
-		output.PrintBlock(fmt.Sprintf(`thoom.Gulp
-version: %s
-author: Z.d.Peacock <zdp@thoomtech.com>
-link: https://github.com/thoom/gulp`, VERSION), nil)
-		fmt.Println()
+		output.PrintVersion(client.GetVersion(), nil)
 		os.Exit(0)
 	}
 
-	url, err := buildURL()
+	path := ""
+	if len(flag.Args()) > 0 {
+		path = flag.Args()[0]
+	}
+
+	url, err := client.BuildURL(path, gulpConfig.URL)
 	if err != nil {
 		output.ExitErr("", err)
 	}
 
+	// Don't check the TLS bro
 	if *insecureFlag || !gulpConfig.VerifyTLS() {
 		if *verboseFlag {
 			output.PrintWarning("TLS checking is disabled for this request", nil)
 		}
 		client.DisableTLSVerification()
 	}
+
+	// If the disableRedirectFlag is false and follow redirects is false, then set the flag to true
+	followRedirect := shouldFollowRedirects()
 
 	// Don't get the post body if it's a GET/HEAD request
 	body := ""
@@ -114,112 +118,64 @@ link: https://github.com/thoom/gulp`, VERSION), nil)
 
 		for c := 0; c < ci; c++ {
 			wg.Add(1)
-			go func(url string, body string, i int, c int) {
+			go func(c int) {
 				defer wg.Done()
-				var startTimer time.Time
-
-				b := &bytes.Buffer{}
-				defer fmt.Print(b)
-
-				if *repeatFlag > 1 {
-					iteration++
-					if *verboseFlag {
-						output.PrintHeader(fmt.Sprintf("Iteration #%d", iteration), b)
-					} else {
-						fmt.Fprintf(b, "%d: ", iteration)
-					}
-				}
-
-				headers, err := buildHeaders(reqHeaders, body != "")
-				if err != nil {
-					output.ExitErr("", err)
-				}
-
-				req, err := client.CreateRequest(*methodFlag, url, body, headers)
-				if err != nil {
-					output.ExitErr("", err)
-				}
-
-				if *verboseFlag && req != nil {
-					block := []string{fmt.Sprintf("%s %s", *methodFlag, url)}
-					mk := make([]string, len(headers))
-					i := 0
-					for k := range headers {
-						mk[i] = k
-						i++
-					}
-					sort.Strings(mk)
-
-					for _, k := range mk {
-						block = append(block, strings.ToUpper(k)+": "+headers[k])
-					}
-					output.PrintBlock(strings.Join(block, "\n"), b)
-					fmt.Fprintln(b)
-				}
-
-				startTimer = time.Now()
-				resp, err := client.CreateResponse(req)
-				if err != nil {
-					output.ExitErr("Something unexpected happened", err)
-				}
-
-				handleResponse(resp, time.Now().Sub(startTimer).Seconds(), b)
-			}(url, body, i, c)
+				iteration++
+				processRequest(url, body, iteration, followRedirect, i, c)
+			}(c)
 		}
 		wg.Wait()
 	}
 }
 
-func buildURL() (string, error) {
-	url := ""
-	path := ""
-	if len(flag.Args()) > 0 {
-		path = flag.Args()[0]
-	}
+func processRequest(url string, body string, iteration int, followRedirect bool, i int, c int) {
+	var startTimer time.Time
 
-	var err error
-	if strings.HasPrefix(path, "http") {
-		url = path
-	} else if gulpConfig.URL != "" {
-		url = gulpConfig.URL + path
-	}
+	b := &bytes.Buffer{}
+	defer fmt.Print(b)
 
-	if url == "" {
-		if path == "" {
-			err = fmt.Errorf("Need a URL to make a request")
+	if *repeatFlag > 1 {
+		if *verboseFlag {
+			output.PrintHeader(fmt.Sprintf("Iteration #%d", iteration), b)
 		} else {
-			err = fmt.Errorf("Invalid URL")
+			fmt.Fprintf(b, "%d: ", iteration)
 		}
 	}
 
-	return url, err
-}
-
-func buildHeaders(reqHeaders []string, includeJSON bool) (map[string]string, error) {
-	headers := make(map[string]string)
-
-	// Set the default User-Agent and Accept type
-	headers["USER-AGENT"] = fmt.Sprintf("thoom.Gulp/%s", VERSION)
-	headers["ACCEPT"] = "application/json;q=1.0, */*;q=0.8"
-
-	if includeJSON {
-		headers["CONTENT-TYPE"] = "application/json"
+	headers, err := client.BuildHeaders(reqHeaders, gulpConfig.Headers, body != "")
+	if err != nil {
+		output.ExitErr("", err)
 	}
 
-	for k, v := range gulpConfig.Headers {
-		headers[strings.ToUpper(k)] = v
+	req, err := client.CreateRequest(*methodFlag, url, body, headers)
+	if err != nil {
+		output.ExitErr("", err)
 	}
 
-	for _, header := range reqHeaders {
-		pieces := strings.Split(header, ":")
-		if len(pieces) != 2 {
-			return nil, fmt.Errorf("Could not parse header: '%s'", header)
+	if *verboseFlag && req != nil {
+		block := []string{fmt.Sprintf("%s %s", *methodFlag, url)}
+		mk := make([]string, len(headers))
+		i := 0
+		for k := range headers {
+			mk[i] = k
+			i++
 		}
+		sort.Strings(mk)
 
-		headers[strings.ToUpper(pieces[0])] = strings.TrimSpace(pieces[1])
+		for _, k := range mk {
+			block = append(block, strings.ToUpper(k)+": "+headers[k])
+		}
+		output.PrintBlock(strings.Join(block, "\n"), b)
+		fmt.Fprintln(b)
 	}
 
-	return headers, nil
+	startTimer = time.Now()
+	resp, err := client.CreateResponse(req, followRedirect)
+	if err != nil {
+		output.ExitErr("Something unexpected happened", err)
+	}
+
+	handleResponse(resp, time.Now().Sub(startTimer).Seconds(), b)
 }
 
 func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
@@ -299,6 +255,47 @@ func getPostBody() string {
 	return body
 }
 
+func shouldFollowRedirects() bool {
+	redirectFlags := 0
+	if *disableRedirectFlag {
+		redirectFlags++
+	}
+
+	if *followRedirectFlag {
+		redirectFlags++
+	}
+
+	// If we don't have either flag set, use the config
+	if redirectFlags == 0 {
+		return gulpConfig.FollowRedirects()
+	}
+
+	// If only one of the flags is set, use the flag passed
+	if redirectFlags > 1 {
+		totalArgs := len(os.Args[1:])
+		*disableRedirectFlag = false
+		*followRedirectFlag = false
+		for i := totalArgs; i > 0; i-- {
+			switch os.Args[i] {
+			case "-no-redirect":
+				*disableRedirectFlag = true
+				break
+			case "-follow-redirect":
+				*followRedirectFlag = true
+				break
+			default:
+				continue
+			}
+			break
+		}
+	}
+
+	if *disableRedirectFlag {
+		return false
+	}
+	return true
+}
+
 func filterDisplayFlags() {
 	displayFlags := 0
 	if *responseOnlyFlag {
@@ -344,7 +341,7 @@ func filterDisplayFlags() {
 		case "-sco":
 			*statusCodeOnlyFlag = true
 			break
-		case "-I":
+		case "-v":
 			*verboseFlag = true
 			break
 		default:

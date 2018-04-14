@@ -20,10 +20,16 @@ var New Config
 
 func newConfig() Config {
 	flags := make(map[string]string)
+	flags["follow_redirects"] = "true"
 	flags["use_color"] = "true"
 	flags["verify_tls"] = "true"
 
 	return Config{Flags: flags}
+}
+
+// FollowRedirects determines whether or not to follow 301/302 redirects
+func (gc Config) FollowRedirects() bool {
+	return gc.Flags["follow_redirects"] != "false"
 }
 
 // UseColor adds a switch for whether or not to colorize the output

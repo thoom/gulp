@@ -59,7 +59,7 @@ For instance to get user _foo_'s data from the Github API:
 
 Want more info about the request, like the request headers passed and the response headers received?
 
-	gulp -I https://api.github.com/users/foo
+	gulp -v https://api.github.com/users/foo
 
 Imagine that you are going to be working frequently with the Github API. 
 Create a configuration file (details described below) to simplify the interactions.
@@ -69,7 +69,7 @@ Create a configuration file (details described below) to simplify the interactio
 
 Now you can just call:
 
-	gulp -I /users/foo
+	gulp -v /users/foo
 
 This exposes how the client builds the final URL from 2 parts: the _config.URL_ and the _Path_.
 
@@ -101,14 +101,17 @@ Use the `-c` argument to load a different configuration file.
 * __display__: How to display responses.
 	If not set, only the response body will be displayed.
 	Allowed values are `verbose` and `status-code-only`.
-	These can be overridden by the `-ro`, `-sco`, and `-I` cli flags. 
+	These can be overridden by the `-ro`, `-sco`, and `-v` cli flags. 
 
-* __flags__: Options that can be turned on or off:
+* __flags__: Options that are enabled by default and can be disabled:
+  * __follow_redirects__: Whether or not to colorize verbose responses. 
+	Can be disabled with the `-no-redirect` flag.
+  
   * __use_color__: Whether or not to colorize verbose responses. 
-	Enabled by default. Can be disabled with the `-no-color` flag.
+	Can be disabled with the `-no-color` flag.
   
   * __verify_tls__: Whether or not to check TLS certificates. 
-	Enabled by default. Can be disabled with the `-k` flag.
+	Can be disabled with the `-k` flag.
 
 ## POST Payload
 

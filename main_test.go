@@ -1,142 +1,74 @@
 package main
 
 import (
-	"flag"
-	"fmt"
 	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/thoom/gulp/config"
 )
 
-func TestBuildURLBasic(t *testing.T) {
-	assert := assert.New(t)
-
-	os.Args = []string{"cmd", "/some/resource"}
-	flag.Parse()
-
-	gulpConfig = config.New
-	gulpConfig.URL = "https://api.ex.io"
-	url, _ := buildURL()
-	assert.Equal("https://api.ex.io/some/resource", url)
+func resetRedirectFlags() {
+	*followRedirectFlag = false
+	*disableRedirectFlag = false
 }
 
-func TestBuildURLNoConfig(t *testing.T) {
+func TestShouldFollowRedirects(t *testing.T) {
 	assert := assert.New(t)
+	resetRedirectFlags()
 
-	os.Args = []string{"cmd", "https://api.ex.io/some/resource"}
-	flag.Parse()
-
-	gulpConfig = config.New
-	url, _ := buildURL()
-	assert.Equal("https://api.ex.io/some/resource", url)
+	*followRedirectFlag = true
+	assert.True(shouldFollowRedirects())
 }
 
-func TestBuildURLOverride(t *testing.T) {
+func TestShouldFollowRedirectsDisabled(t *testing.T) {
 	assert := assert.New(t)
+	resetRedirectFlags()
 
-	os.Args = []string{"cmd", "https://api.ex.io"}
-	flag.Parse()
-	gulpConfig = config.New
-	gulpConfig.URL = "https://another.base.io"
-	url, _ := buildURL()
-	assert.Equal("https://api.ex.io", url)
+	*disableRedirectFlag = true
+	assert.False(shouldFollowRedirects())
+}
+func TestShouldFollowRedirectsConfig(t *testing.T) {
+	assert := assert.New(t)
+	resetRedirectFlags()
+
+	assert.True(shouldFollowRedirects())
 }
 
-func TestBuildURLNoPath(t *testing.T) {
+func TestShouldFollowRedirectsConfigDisabled(t *testing.T) {
 	assert := assert.New(t)
+	resetRedirectFlags()
 
-	os.Args = []string{"cmd"}
-	flag.Parse()
-	gulpConfig = config.New
-	gulpConfig.URL = "https://api.ex.io"
-	url, _ := buildURL()
-	assert.Equal("https://api.ex.io", url)
+	gulpConfig.Flags["follow_redirects"] = "false"
+	assert.False(shouldFollowRedirects())
 }
 
-func TestBuildURLBadURL(t *testing.T) {
+func TestShouldFollowRedirectsConfigDisabledFlagEnable(t *testing.T) {
 	assert := assert.New(t)
+	resetRedirectFlags()
 
-	os.Args = []string{"cmd", "/bad/path"}
-	flag.Parse()
-	gulpConfig = config.New
-	url, err := buildURL()
-	assert.Empty(url)
-	assert.NotNil(err)
-	assert.Equal("Invalid URL", fmt.Sprintf("%s", err))
+	*followRedirectFlag = true
+	gulpConfig.Flags["follow_redirects"] = "false"
+	assert.True(shouldFollowRedirects())
 }
 
-func TestBuildURLNoURL(t *testing.T) {
+func TestShouldFollowRedirectsFlagsMultipleFollow(t *testing.T) {
 	assert := assert.New(t)
 
-	os.Args = []string{"cmd"}
-	flag.Parse()
-	gulpConfig = config.New
-	url, err := buildURL()
-	assert.Empty(url)
-	assert.NotNil(err)
-	assert.Equal("Need a URL to make a request", fmt.Sprintf("%s", err))
+	*followRedirectFlag = true
+	*disableRedirectFlag = true
+
+	os.Args = []string{"cmd", "-no-redirect", "-follow-redirect"}
+	assert.True(shouldFollowRedirects())
 }
 
-func TestBuildHeadersBase(t *testing.T) {
+func TestShouldFollowRedirectsFlagsMultipleDisabled(t *testing.T) {
 	assert := assert.New(t)
 
-	gulpConfig = config.New
-	headers, _ := buildHeaders([]string{"X-Test-Key: abc123def"}, false)
-	assert.Equal(3, len(headers))
+	*followRedirectFlag = true
+	*disableRedirectFlag = true
 
-	assert.Contains(headers, "USER-AGENT")
-	assert.Equal("thoom.Gulp/"+VERSION, headers["USER-AGENT"])
-
-	assert.Contains(headers, "ACCEPT")
-	assert.Equal("application/json;q=1.0, */*;q=0.8", headers["ACCEPT"])
-
-	assert.Contains(headers, "X-TEST-KEY")
-	assert.Equal("abc123def", headers["X-TEST-KEY"])
-}
-
-func TestBuildHeadersJSON(t *testing.T) {
-	assert := assert.New(t)
-
-	headers, _ := buildHeaders([]string{}, true)
-	assert.Equal(3, len(headers))
-
-	assert.Contains(headers, "CONTENT-TYPE")
-	assert.Equal("application/json", headers["CONTENT-TYPE"])
-}
-
-func TestBuildHeadersHeaderConfig(t *testing.T) {
-	assert := assert.New(t)
-
-	gulpConfig = config.New
-	gulpConfig.Headers = map[string]string{}
-	gulpConfig.Headers["X-Test-Key"] = "abc123def"
-
-	headers, _ := buildHeaders([]string{}, false)
-	assert.Equal(3, len(headers))
-
-	assert.Contains(headers, "X-TEST-KEY")
-	assert.Equal("abc123def", headers["X-TEST-KEY"])
-}
-
-func TestBuildHeadersHeaderOverride(t *testing.T) {
-	assert := assert.New(t)
-
-	gulpConfig = config.New
-	headers, _ := buildHeaders([]string{"Content-Type: application/vnd.ex.v1+json"}, true)
-	assert.Equal(3, len(headers))
-
-	assert.Contains(headers, "CONTENT-TYPE")
-	assert.Equal("application/vnd.ex.v1+json", headers["CONTENT-TYPE"])
-}
-
-func TestBuildHeadersHeaderErr(t *testing.T) {
-	assert := assert.New(t)
-
-	_, err := buildHeaders([]string{"Bad-Content-Header"}, true)
-	assert.NotNil(err)
-	assert.Equal("Could not parse header: 'Bad-Content-Header'", fmt.Sprintf("%s", err))
+	os.Args = []string{"cmd", "-follow-redirect", "-no-redirect"}
+	assert.False(shouldFollowRedirects())
 }
 
 func resetDisplayFlags() {
@@ -217,7 +149,7 @@ func TestFilterDisplayFlagsMultipleResponseOnly(t *testing.T) {
 	*statusCodeOnlyFlag = true
 	*verboseFlag = true
 
-	os.Args = []string{"cmd", "-sco", "-I", "-ro"}
+	os.Args = []string{"cmd", "-sco", "-v", "-ro"}
 
 	filterDisplayFlags()
 	assert.True(*responseOnlyFlag)
@@ -232,7 +164,7 @@ func TestFilterDisplayFlagsMultipleStatusCode(t *testing.T) {
 	*statusCodeOnlyFlag = true
 	*verboseFlag = true
 
-	os.Args = []string{"cmd", "-I", "-ro", "-sco"}
+	os.Args = []string{"cmd", "-v", "-ro", "-sco"}
 
 	filterDisplayFlags()
 	assert.False(*responseOnlyFlag)
@@ -247,7 +179,7 @@ func TestFilterDisplayFlagsMultipleVerbose(t *testing.T) {
 	*statusCodeOnlyFlag = true
 	*verboseFlag = true
 
-	os.Args = []string{"cmd", "-sco", "-ro", "-I"}
+	os.Args = []string{"cmd", "-sco", "-ro", "-v"}
 
 	filterDisplayFlags()
 	assert.False(*responseOnlyFlag)

@@ -13,6 +13,7 @@ import (
 func TestNewConfig(t *testing.T) {
 	assert := assert.New(t)
 
+	assert.True(New.FollowRedirects())
 	assert.True(New.UseColor())
 	assert.True(New.VerifyTLS())
 }

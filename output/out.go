@@ -104,3 +104,17 @@ func ExitErr(txt string, err error) {
 	PrintErr(txt, err, nil)
 	os.Exit(1)
 }
+
+// PrintVersion will output the current version and colophon
+func PrintVersion(version string, writer io.Writer) {
+	if writer == nil {
+		writer = os.Stdout
+	}
+
+	PrintBlock(fmt.Sprintf(`thoom.Gulp
+version: %s
+author: Z.d.Peacock <zdp@thoomtech.com>
+link: https://github.com/thoom/gulp`, version), writer)
+
+	fmt.Fprintln(writer, "")
+}

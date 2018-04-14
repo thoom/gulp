@@ -8,10 +8,14 @@ import (
 	"strings"
 )
 
+var buildVersion string
+
+// DisableTLSVerification disables TLS verification
 func DisableTLSVerification() {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 }
 
+// CreateRequest will create a request object
 func CreateRequest(method string, url string, body string, headers map[string]string) (*http.Request, error) {
 	var reader io.Reader
 	if body != "" {
@@ -29,7 +33,16 @@ func CreateRequest(method string, url string, body string, headers map[string]st
 	return req, nil
 }
 
-func CreateResponse(request *http.Request) (*http.Response, error) {
+// CreateResponse processes the request and returns the response
+func CreateResponse(request *http.Request, followRedirects bool) (*http.Response, error) {
 	httpClient := &http.Client{}
+	if !followRedirects {
+		httpClient = &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+	}
+
 	return httpClient.Do(request)
 }

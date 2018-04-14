@@ -58,3 +58,11 @@ func TestPrintErrNoLabel(t *testing.T) {
 	PrintErr("", fmt.Errorf("Error Message"), b)
 	assert.Equal("Error Message\n", b.String())
 }
+
+func TestPrintVersion(t *testing.T) {
+	assert := assert.New(t)
+
+	b := &bytes.Buffer{}
+	PrintVersion("abc123def", b)
+	assert.Equal("\nthoom.Gulp                              \n\nversion: abc123def                      \nauthor: Z.d.Peacock <zdp@thoomtech.com> \nlink: https://github.com/thoom/gulp     \n\n", b.String())
+}
