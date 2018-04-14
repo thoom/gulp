@@ -104,7 +104,7 @@ Use the `-c` argument to load a different configuration file.
 	These can be overridden by the `-ro`, `-sco`, and `-v` cli flags. 
 
 * __flags__: Options that are enabled by default and can be disabled:
-  * __follow_redirects__: Whether or not to colorize verbose responses. 
+  * __follow_redirects__: Whether or not to follow `3XX` HTTP redirects. 
 	Can be disabled with the `-no-redirect` flag.
   
   * __use_color__: Whether or not to colorize verbose responses. 
