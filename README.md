@@ -1,4 +1,4 @@
-# gulp [![Build Status](https://travis-ci.org/thoom/gulp.svg?branch=master)](https://travis-ci.org/thoom/gulp)
+# gulp [![Build Status](https://travis-ci.org/thoom/gulp.svg?branch=master)](https://travis-ci.org/thoom/gulp) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp)
 
 Gulp is a YAML-oriented HTTP CLI client for JSON APIs. When interacting with an API, Gulp accepts
 either JSON or YAML. Since JSON is a subset of the YAML specification, YAML payloads are effortlessly
@@ -74,7 +74,7 @@ Now you can just call:
 This exposes how the client builds the final URL from 2 parts: the _config.URL_ and the _Path_.
 
 The cli format is technically in the format `gulp [FLAGS] [PATH]`. If a configuration file exists,
-and it has the `url` (_confing.URL_) field defined (as seen above), then it will take the _[PATH]_ from the 
+and it has the `url` (_config.URL_) field defined (as seen above), then it will take the _[PATH]_ from the 
 cli and concatinate it with the _config.URL_. This was seen in the previous example.
 
 If the _[PATH]_ starts with `http`, then the client will ignore the _config.URL_.
