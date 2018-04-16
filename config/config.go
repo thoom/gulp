@@ -16,15 +16,15 @@ type Config struct {
 }
 
 // New creates a default configuration object
-var New Config
+var New *Config
 
-func newConfig() Config {
+func newConfig() *Config {
 	flags := make(map[string]string)
 	flags["follow_redirects"] = "true"
 	flags["use_color"] = "true"
 	flags["verify_tls"] = "true"
 
-	return Config{Flags: flags}
+	return &Config{Flags: flags}
 }
 
 // FollowRedirects determines whether or not to follow 301/302 redirects
@@ -47,7 +47,7 @@ func init() {
 }
 
 // LoadConfiguration builds a configuration object based on the fileName passed
-func LoadConfiguration(fileName string) (Config, error) {
+func LoadConfiguration(fileName string) (*Config, error) {
 	dat, err := ioutil.ReadFile(fileName)
 	if err != nil {
 		// If the file wasn't found and it's just the default, don't worry about it.
@@ -55,12 +55,12 @@ func LoadConfiguration(fileName string) (Config, error) {
 			return New, nil
 		}
 
-		return New, fmt.Errorf("Could not load configuration '%s'", fileName)
+		return nil, fmt.Errorf("Could not load configuration '%s'", fileName)
 	}
 
-	var gulpConfig Config
+	var gulpConfig *Config
 	if yaml.Unmarshal(dat, &gulpConfig) != nil {
-		return New, fmt.Errorf("Could not parse configuration")
+		return nil, fmt.Errorf("Could not parse configuration")
 	}
 
 	return gulpConfig, nil

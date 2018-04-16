@@ -9,45 +9,41 @@ import (
 	"github.com/fatih/color"
 )
 
-// NoColor disables outputing in color
-func NoColor(noColor bool) {
-	color.NoColor = noColor
+// Out prints the data to os.Stdout/os.StdErr
+var Out *BuffOut
+
+// BuffOut provides writers to handle output and err output
+type BuffOut struct {
+	Out io.Writer
+	Err io.Writer
+}
+
+func init() {
+	Out = &BuffOut{Out: os.Stdout, Err: os.Stderr}
 }
 
 // PrintWarning outputs a warning
-func PrintWarning(txt string, writer io.Writer) {
-	if writer == nil {
-		writer = os.Stdout
-	}
-
-	fmt.Fprintln(writer, color.New(color.FgYellow, color.Bold).Sprintf("WARNING: %s ", strings.ToUpper(txt)))
+func (bo *BuffOut) PrintWarning(txt string) {
+	fmt.Fprintln(bo.Out, color.New(color.FgYellow, color.Bold).Sprintf("WARNING: %s ", strings.ToUpper(txt)))
 }
 
 // PrintStoplight will print out red if stopped is true, green if not
-func PrintStoplight(txt string, stopped bool, writer io.Writer) {
+func (bo *BuffOut) PrintStoplight(txt string, stopped bool) {
 	c := color.FgGreen
 	if stopped {
 		c = color.FgRed
 	}
 
-	if writer == nil {
-		writer = os.Stdout
-	}
-
-	fmt.Fprintln(writer, color.New(c).Sprintf(txt))
+	fmt.Fprintln(bo.Out, color.New(c).Sprintf(txt))
 }
 
 // PrintHeader prints out the header
-func PrintHeader(txt string, writer io.Writer) {
-	if writer == nil {
-		writer = os.Stdout
-	}
-
-	fmt.Fprintln(writer, color.New(color.FgCyan, color.Bold).Sprintf("\n%s\n", txt))
+func (bo *BuffOut) PrintHeader(txt string) {
+	fmt.Fprintln(bo.Out, color.New(color.FgCyan, color.Bold).Sprintf("\n%s\n", txt))
 }
 
 // PrintBlock prints out a block of code with the same background
-func PrintBlock(block string, writer io.Writer) {
+func (bo *BuffOut) PrintBlock(block string) {
 	pieces := strings.Split(block, "\n")
 	max := 0
 	for _, v := range pieces {
@@ -68,22 +64,18 @@ func PrintBlock(block string, writer io.Writer) {
 
 		v = fmt.Sprintf("%s%s ", v, padding)
 		if i == 0 {
-			PrintHeader(v, writer)
+			bo.PrintHeader(v)
 			continue
 		}
 
 		formatted = append(formatted, color.New(color.FgBlack, color.BgCyan).Sprintf(v))
 	}
 
-	if writer == nil {
-		writer = os.Stdout
-	}
-
-	fmt.Fprintln(writer, strings.Join(formatted, "\n"))
+	fmt.Fprintln(bo.Out, strings.Join(formatted, "\n"))
 }
 
 // PrintErr prints out the text to Stderr
-func PrintErr(txt string, err error, writer io.Writer) {
+func (bo *BuffOut) PrintErr(txt string, err error) {
 	if err != nil {
 		if txt != "" {
 			txt = fmt.Sprintf(txt+": %s", err)
@@ -92,29 +84,26 @@ func PrintErr(txt string, err error, writer io.Writer) {
 		}
 	}
 
-	if writer == nil {
-		writer = os.Stderr
-	}
+	fmt.Fprintln(bo.Err, color.New(color.FgWhite, color.BgRed).Sprintf(txt))
+}
 
-	fmt.Fprintln(writer, color.New(color.FgWhite, color.BgRed).Sprintf(txt))
+// PrintVersion will output the current version and colophon
+func (bo *BuffOut) PrintVersion(version string) {
+	bo.PrintBlock(fmt.Sprintf(`thoom.Gulp
+version: %s
+author: Z.d.Peacock <zdp@thoomtech.com>
+link: https://github.com/thoom/gulp`, version))
+
+	fmt.Fprintln(bo.Out, "")
+}
+
+// NoColor disables outputing in color
+func NoColor(noColor bool) {
+	color.NoColor = noColor
 }
 
 // ExitErr prints out an error and quits
 func ExitErr(txt string, err error) {
-	PrintErr(txt, err, nil)
+	Out.PrintErr(txt, err)
 	os.Exit(1)
-}
-
-// PrintVersion will output the current version and colophon
-func PrintVersion(version string, writer io.Writer) {
-	if writer == nil {
-		writer = os.Stdout
-	}
-
-	PrintBlock(fmt.Sprintf(`thoom.Gulp
-version: %s
-author: Z.d.Peacock <zdp@thoomtech.com>
-link: https://github.com/thoom/gulp`, version), writer)
-
-	fmt.Fprintln(writer, "")
 }

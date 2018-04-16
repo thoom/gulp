@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"net/http"
 	"os"
@@ -73,7 +72,7 @@ func main() {
 	filterDisplayFlags()
 
 	if *versionFlag {
-		output.PrintVersion(client.GetVersion(), nil)
+		output.Out.PrintVersion(client.GetVersion())
 		os.Exit(0)
 	}
 
@@ -90,7 +89,7 @@ func main() {
 	// Don't check the TLS bro
 	if *insecureFlag || !gulpConfig.VerifyTLS() {
 		if *verboseFlag {
-			output.PrintWarning("TLS checking is disabled for this request", nil)
+			output.Out.PrintWarning("TLS checking is disabled for this request")
 		}
 		client.DisableTLSVerification()
 	}
@@ -133,10 +132,11 @@ func processRequest(url string, body string, iteration int, followRedirect bool,
 
 	b := &bytes.Buffer{}
 	defer fmt.Print(b)
+	bo := &output.BuffOut{Out: b, Err: b}
 
 	if *repeatFlag > 1 {
 		if *verboseFlag {
-			output.PrintHeader(fmt.Sprintf("Iteration #%d", iteration), b)
+			bo.PrintHeader(fmt.Sprintf("Iteration #%d", iteration))
 		} else {
 			fmt.Fprintf(b, "%d: ", iteration)
 		}
@@ -165,7 +165,7 @@ func processRequest(url string, body string, iteration int, followRedirect bool,
 		for _, k := range mk {
 			block = append(block, strings.ToUpper(k)+": "+headers[k])
 		}
-		output.PrintBlock(strings.Join(block, "\n"), b)
+		bo.PrintBlock(strings.Join(block, "\n"))
 		fmt.Fprintln(b)
 	}
 
@@ -175,16 +175,12 @@ func processRequest(url string, body string, iteration int, followRedirect bool,
 		output.ExitErr("Something unexpected happened", err)
 	}
 
-	handleResponse(resp, time.Now().Sub(startTimer).Seconds(), b)
+	handleResponse(resp, time.Now().Sub(startTimer).Seconds(), bo)
 }
 
-func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
-	if writer == nil {
-		writer = os.Stdout
-	}
-
+func handleResponse(resp *http.Response, duration float64, bo *output.BuffOut) {
 	if *statusCodeOnlyFlag {
-		fmt.Fprintln(writer, resp.StatusCode)
+		fmt.Fprintln(bo.Out, resp.StatusCode)
 		return
 	}
 
@@ -192,7 +188,7 @@ func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
 	body, _ := ioutil.ReadAll(resp.Body)
 
 	if *verboseFlag {
-		output.PrintStoplight(fmt.Sprintf("Status: %s (%.2f seconds)\n", resp.Status, duration), resp.StatusCode >= 400, writer)
+		bo.PrintStoplight(fmt.Sprintf("Status: %s (%.2f seconds)\n", resp.Status, duration), resp.StatusCode >= 400)
 	}
 
 	isJSON := false
@@ -209,12 +205,12 @@ func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
 			isJSON = true
 		}
 		if *verboseFlag {
-			fmt.Fprintln(writer, strings.ToUpper(k)+": "+resp.Header.Get(k))
+			fmt.Fprintln(bo.Out, strings.ToUpper(k)+": "+resp.Header.Get(k))
 		}
 	}
 
 	if *verboseFlag {
-		fmt.Fprintln(writer, "")
+		fmt.Fprintln(bo.Out, "")
 	}
 
 	if isJSON && *verboseFlag {
@@ -226,7 +222,7 @@ func handleResponse(resp *http.Response, duration float64, writer io.Writer) {
 		}
 	}
 
-	fmt.Fprintln(writer, string(body))
+	fmt.Fprintln(bo.Out, string(body))
 }
 
 func getPostBody() string {

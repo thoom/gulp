@@ -18,6 +18,14 @@ func TestNewConfig(t *testing.T) {
 	assert.True(New.VerifyTLS())
 }
 
+func TestLoadConfigurationDefault(t *testing.T) {
+	assert := assert.New(t)
+
+	config, _ := LoadConfiguration(".gulp.yml")
+	assert.NotNil(config)
+	assert.EqualValues(config, New)
+}
+
 func TestLoadConfigurationMissing(t *testing.T) {
 	assert := assert.New(t)
 
