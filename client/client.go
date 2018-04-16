@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"time"
 )
 
 var buildVersion string
@@ -18,7 +19,9 @@ func DisableTLSVerification() {
 // CreateRequest will create a request object
 func CreateRequest(method string, url string, body string, headers map[string]string) (*http.Request, error) {
 	var reader io.Reader
-	if body != "" {
+
+	// Don't build the read if using a GET/HEAD request
+	if method != "GET" && method != "HEAD" && body != "" {
 		reader = strings.NewReader(body)
 	}
 
@@ -33,16 +36,17 @@ func CreateRequest(method string, url string, body string, headers map[string]st
 	return req, nil
 }
 
-// CreateResponse processes the request and returns the response
-func CreateResponse(request *http.Request, followRedirects bool) (*http.Response, error) {
-	httpClient := &http.Client{}
+func CreateClient(followRedirects bool, timeout int) *http.Client {
 	if !followRedirects {
-		httpClient = &http.Client{
+		return &http.Client{
+			Timeout: time.Duration(timeout) * time.Second,
 			CheckRedirect: func(req *http.Request, via []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
 		}
 	}
 
-	return httpClient.Do(request)
+	return &http.Client{
+		Timeout: time.Duration(timeout) * time.Second,
+	}
 }

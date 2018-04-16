@@ -170,7 +170,7 @@ func processRequest(url string, body string, iteration int, followRedirect bool,
 	}
 
 	startTimer = time.Now()
-	resp, err := client.CreateResponse(req, followRedirect)
+	resp, err := client.CreateClient(followRedirect, 300).Do(req)
 	if err != nil {
 		output.ExitErr("Something unexpected happened", err)
 	}
