@@ -54,13 +54,13 @@ func (gc *Config) GetTimeout() int {
 		return DefaultTimeout
 	}
 
-	i, err := strconv.ParseInt(gc.Timeout, 10, 64)
+	i, err := strconv.Atoi(gc.Timeout)
 	if err != nil {
 		// For now, if the timeout is not valid, then return 300
 		return DefaultTimeout
 	}
 
-	return int(i)
+	return i
 }
 
 func init() {

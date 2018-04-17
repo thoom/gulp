@@ -282,11 +282,12 @@ func calculateTimeout() int {
 		return gulpConfig.GetTimeout()
 	}
 
-	i, err := strconv.ParseInt(*timeoutFlag, 10, 64)
+	i, err := strconv.Atoi(*timeoutFlag)
 	if err != nil {
 		return gulpConfig.GetTimeout()
 	}
-	return int(i)
+
+	return i
 }
 
 func shouldFollowRedirects() bool {
