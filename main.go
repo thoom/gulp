@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -38,10 +39,11 @@ var (
 	gulpConfig          = config.New
 	methodFlag          = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
 	configFlag          = flag.String("c", ".gulp.yml", "The `configuration` file to use")
-	insecureFlag        = flag.Bool("k", false, "Insecure TLS communication")
+	insecureFlag        = flag.Bool("insecure", false, "Disable TLS certificate checking")
 	responseOnlyFlag    = flag.Bool("ro", false, "Only display the response body (default)")
 	statusCodeOnlyFlag  = flag.Bool("sco", false, "Only display the response code")
 	verboseFlag         = flag.Bool("v", false, "Display the response body along with various headers")
+	timeoutFlag         = flag.String("timeout", "", "The number of `seconds` to wait before the connection times out "+fmt.Sprintf("(default %d)", config.DefaultTimeout))
 	noColorFlag         = flag.Bool("no-color", false, "Disables color output for the request")
 	followRedirectFlag  = flag.Bool("follow-redirect", false, "Enables following 3XX redirects")
 	disableRedirectFlag = flag.Bool("no-redirect", false, "Disables following 3XX redirects")
@@ -64,9 +66,7 @@ func main() {
 	gulpConfig = loadedConfig
 
 	// Disable color output for the request
-	if *noColorFlag || !gulpConfig.UseColor() {
-		output.NoColor(true)
-	}
+	disableColorOutput()
 
 	// Make sure that the displayFlags are set appropriately
 	filterDisplayFlags()
@@ -87,12 +87,7 @@ func main() {
 	}
 
 	// Don't check the TLS bro
-	if *insecureFlag || !gulpConfig.VerifyTLS() {
-		if *verboseFlag {
-			output.Out.PrintWarning("TLS checking is disabled for this request")
-		}
-		client.DisableTLSVerification()
-	}
+	disableTLSVerify()
 
 	// If the disableRedirectFlag is false and follow redirects is false, then set the flag to true
 	followRedirect := shouldFollowRedirects()
@@ -119,7 +114,9 @@ func main() {
 			wg.Add(1)
 			go func(c int) {
 				defer wg.Done()
-				iteration++
+				if *repeatFlag > 1 {
+					iteration++
+				}
 				processRequest(url, body, iteration, followRedirect, i, c)
 			}(c)
 		}
@@ -129,18 +126,6 @@ func main() {
 
 func processRequest(url string, body string, iteration int, followRedirect bool, i int, c int) {
 	var startTimer time.Time
-
-	b := &bytes.Buffer{}
-	defer fmt.Print(b)
-	bo := &output.BuffOut{Out: b, Err: b}
-
-	if *repeatFlag > 1 {
-		if *verboseFlag {
-			bo.PrintHeader(fmt.Sprintf("Iteration #%d", iteration))
-		} else {
-			fmt.Fprintf(b, "%d: ", iteration)
-		}
-	}
 
 	headers, err := client.BuildHeaders(reqHeaders, gulpConfig.Headers, body != "")
 	if err != nil {
@@ -152,30 +137,56 @@ func processRequest(url string, body string, iteration int, followRedirect bool,
 		output.ExitErr("", err)
 	}
 
-	if *verboseFlag && req != nil {
-		block := []string{fmt.Sprintf("%s %s", *methodFlag, url)}
-		mk := make([]string, len(headers))
-		i := 0
-		for k := range headers {
-			mk[i] = k
-			i++
-		}
-		sort.Strings(mk)
+	b := &bytes.Buffer{}
+	defer fmt.Print(b)
+	bo := &output.BuffOut{Out: b, Err: b}
 
-		for _, k := range mk {
-			block = append(block, strings.ToUpper(k)+": "+headers[k])
-		}
-		bo.PrintBlock(strings.Join(block, "\n"))
-		fmt.Fprintln(b)
+	// If we got a request, output what was created
+	if req != nil {
+		printRequest(iteration, url, headers, bo)
 	}
 
 	startTimer = time.Now()
-	resp, err := client.CreateClient(followRedirect, 300).Do(req)
+	resp, err := client.CreateClient(followRedirect, calculateTimeout()).Do(req)
 	if err != nil {
 		output.ExitErr("Something unexpected happened", err)
 	}
 
 	handleResponse(resp, time.Now().Sub(startTimer).Seconds(), bo)
+}
+
+func printRequest(iteration int, url string, headers map[string]string, bo *output.BuffOut) {
+	if !*verboseFlag {
+		if iteration > 0 {
+			fmt.Fprintf(bo.Out, "%d: ", iteration)
+		}
+		return
+	}
+
+	if iteration > 0 {
+		bo.PrintHeader(fmt.Sprintf("Iteration #%d", iteration))
+	}
+
+	urlHeader := fmt.Sprintf("%s %s", *methodFlag, url)
+	if len(headers) == 0 {
+		bo.PrintHeader(urlHeader)
+		return
+	}
+
+	block := []string{urlHeader}
+	mk := make([]string, len(headers))
+	i := 0
+	for k := range headers {
+		mk[i] = k
+		i++
+	}
+	sort.Strings(mk)
+
+	for _, k := range mk {
+		block = append(block, strings.ToUpper(k)+": "+headers[k])
+	}
+	bo.PrintBlock(strings.Join(block, "\n"))
+	fmt.Fprintln(bo.Out)
 }
 
 func handleResponse(resp *http.Response, duration float64, bo *output.BuffOut) {
@@ -249,6 +260,33 @@ func getPostBody() string {
 	}
 
 	return body
+}
+
+func disableColorOutput() {
+	if *noColorFlag || !gulpConfig.UseColor() {
+		output.NoColor(true)
+	}
+}
+
+func disableTLSVerify() {
+	if *insecureFlag || !gulpConfig.VerifyTLS() {
+		if *verboseFlag {
+			output.Out.PrintWarning("TLS checking is disabled for this request")
+		}
+		client.DisableTLSVerification()
+	}
+}
+
+func calculateTimeout() int {
+	if *timeoutFlag == "" {
+		return gulpConfig.GetTimeout()
+	}
+
+	i, err := strconv.ParseInt(*timeoutFlag, 10, 64)
+	if err != nil {
+		return gulpConfig.GetTimeout()
+	}
+	return int(i)
 }
 
 func shouldFollowRedirects() bool {

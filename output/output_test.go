@@ -25,7 +25,7 @@ func TestPrintWarning(t *testing.T) {
 	b := &bytes.Buffer{}
 	tst := &BuffOut{Out: b, Err: b}
 	tst.PrintWarning("boo")
-	assert.Equal("WARNING: BOO \n", b.String())
+	assert.Equal("WARNING: BOO\n", b.String())
 }
 
 func TestSpotlightStop(t *testing.T) {

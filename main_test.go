@@ -1,8 +1,17 @@
 package main
 
 import (
+	"bytes"
+	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"testing"
+
+	"github.com/thoom/gulp/config"
+
+	"github.com/fatih/color"
+	"github.com/thoom/gulp/output"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -57,7 +66,7 @@ func TestShouldFollowRedirectsFlagsMultipleFollow(t *testing.T) {
 	*followRedirectFlag = true
 	*disableRedirectFlag = true
 
-	os.Args = []string{"cmd", "-no-redirect", "-follow-redirect"}
+	os.Args = []string{"cmd", "-no-redirect", "-follow-redirect", "/foo/path"}
 	assert.True(shouldFollowRedirects())
 }
 
@@ -67,7 +76,7 @@ func TestShouldFollowRedirectsFlagsMultipleDisabled(t *testing.T) {
 	*followRedirectFlag = true
 	*disableRedirectFlag = true
 
-	os.Args = []string{"cmd", "-follow-redirect", "-no-redirect"}
+	os.Args = []string{"cmd", "-follow-redirect", "-no-redirect", "/foo/path"}
 	assert.False(shouldFollowRedirects())
 }
 
@@ -149,7 +158,7 @@ func TestFilterDisplayFlagsMultipleResponseOnly(t *testing.T) {
 	*statusCodeOnlyFlag = true
 	*verboseFlag = true
 
-	os.Args = []string{"cmd", "-sco", "-v", "-ro"}
+	os.Args = []string{"cmd", "-sco", "-v", "-ro", "-no-redirect"}
 
 	filterDisplayFlags()
 	assert.True(*responseOnlyFlag)
@@ -164,7 +173,7 @@ func TestFilterDisplayFlagsMultipleStatusCode(t *testing.T) {
 	*statusCodeOnlyFlag = true
 	*verboseFlag = true
 
-	os.Args = []string{"cmd", "-v", "-ro", "-sco"}
+	os.Args = []string{"cmd", "-v", "-ro", "-sco", "-no-redirect"}
 
 	filterDisplayFlags()
 	assert.False(*responseOnlyFlag)
@@ -179,10 +188,203 @@ func TestFilterDisplayFlagsMultipleVerbose(t *testing.T) {
 	*statusCodeOnlyFlag = true
 	*verboseFlag = true
 
-	os.Args = []string{"cmd", "-sco", "-ro", "-v"}
+	os.Args = []string{"cmd", "-sco", "-ro", "-v", "-no-redirect"}
 
 	filterDisplayFlags()
 	assert.False(*responseOnlyFlag)
 	assert.False(*statusCodeOnlyFlag)
 	assert.True(*verboseFlag)
+}
+
+func TestHandleResponse(t *testing.T) {
+	resetDisplayFlags()
+	assert := assert.New(t)
+	*verboseFlag = true
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(200)
+		w.Write([]byte("{\"salutation\":\"hello world\"}"))
+	}
+
+	req := httptest.NewRequest("GET", "http://example.com/foo", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	b := &bytes.Buffer{}
+	bo := &output.BuffOut{Out: b, Err: b}
+	handleResponse(w.Result(), 10, bo)
+	assert.Equal(200, w.Result().StatusCode)
+	assert.Equal("Status: 200 OK (10.00 seconds)\n\nCONTENT-TYPE: application/json\n\n{\n  \"salutation\": \"hello world\"\n}\n", b.String())
+}
+
+func TestHandleResponseStatusCode(t *testing.T) {
+	resetDisplayFlags()
+
+	assert := assert.New(t)
+	*statusCodeOnlyFlag = true
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	}
+
+	req := httptest.NewRequest("GET", "http://api.ex.io/foo", nil)
+	w := httptest.NewRecorder()
+	handler(w, req)
+
+	b := &bytes.Buffer{}
+	bo := &output.BuffOut{Out: b, Err: b}
+	handleResponse(w.Result(), 10, bo)
+	assert.Equal(200, w.Result().StatusCode)
+	assert.Equal("200\n", b.String())
+}
+
+func TestGetPostBodyEmpty(t *testing.T) {
+	assert := assert.New(t)
+
+	body := getPostBody()
+	assert.Empty(body)
+}
+
+func TestGetPostBody(t *testing.T) {
+	assert := assert.New(t)
+
+	testFile, _ := ioutil.TempFile(os.TempDir(), "test_post_body")
+	ioutil.WriteFile(testFile.Name(), []byte("salutation: hello world"), 0644)
+
+	os.Stdin, _ = os.Open(testFile.Name())
+	defer os.Stdin.Close()
+
+	body := getPostBody()
+	assert.Equal("{\"salutation\":\"hello world\"}", body)
+}
+
+func TestDisableColorOutput(t *testing.T) {
+	assert := assert.New(t)
+
+	gulpConfig.Flags["use_color"] = "true"
+	*noColorFlag = true
+	disableColorOutput()
+	assert.True(color.NoColor)
+}
+
+func TestDisableColorOutputConfig(t *testing.T) {
+	assert := assert.New(t)
+
+	gulpConfig.Flags["use_color"] = "false"
+	*noColorFlag = false
+	disableColorOutput()
+	assert.True(color.NoColor)
+}
+
+func TestDisableTLSVerify(t *testing.T) {
+	assert := assert.New(t)
+
+	b := &bytes.Buffer{}
+	bo := output.BuffOut{Out: b, Err: b}
+	output.Out = &bo
+
+	*insecureFlag = true
+	*verboseFlag = true
+	gulpConfig.Flags["verify_tls"] = "true"
+	disableTLSVerify()
+
+	assert.Equal("WARNING: TLS CHECKING IS DISABLED FOR THIS REQUEST\n", b.String())
+}
+
+func TestDisableTLSVerifyConfig(t *testing.T) {
+	assert := assert.New(t)
+
+	b := &bytes.Buffer{}
+	bo := output.BuffOut{Out: b, Err: b}
+	output.Out = &bo
+
+	*insecureFlag = false
+	*verboseFlag = true
+	gulpConfig.Flags["verify_tls"] = "false"
+	disableTLSVerify()
+
+	assert.Equal("WARNING: TLS CHECKING IS DISABLED FOR THIS REQUEST\n", b.String())
+}
+
+func TestPrintRequestNotVerboseRepeat1(t *testing.T) {
+	assert := assert.New(t)
+
+	b := &bytes.Buffer{}
+	bo := &output.BuffOut{Out: b, Err: b}
+
+	*verboseFlag = false
+	printRequest(0, "http://test.fake", map[string]string{}, bo)
+	assert.Equal("", b.String())
+}
+
+func TestPrintRequestNotVerboseRepeat7(t *testing.T) {
+	assert := assert.New(t)
+
+	b := &bytes.Buffer{}
+	bo := &output.BuffOut{Out: b, Err: b}
+
+	*verboseFlag = false
+	printRequest(7, "http://test.fake", map[string]string{}, bo)
+	assert.Equal("7: ", b.String())
+}
+
+func TestPrintRequestVerboseRepeat0(t *testing.T) {
+	assert := assert.New(t)
+
+	b := &bytes.Buffer{}
+	bo := &output.BuffOut{Out: b, Err: b}
+
+	*verboseFlag = true
+	printRequest(0, "http://test.fake", map[string]string{}, bo)
+	assert.Equal("\nGET http://test.fake\n\n", b.String())
+}
+
+func TestPrintRequestVerboseRepeat7(t *testing.T) {
+	assert := assert.New(t)
+
+	b := &bytes.Buffer{}
+	bo := &output.BuffOut{Out: b, Err: b}
+
+	*verboseFlag = true
+	printRequest(7, "http://test.fake", map[string]string{}, bo)
+	assert.Equal("\nIteration #7\n\n\nGET http://test.fake\n\n", b.String())
+}
+
+func TestPrintRequestVerboseRepeat0Headers(t *testing.T) {
+	assert := assert.New(t)
+
+	b := &bytes.Buffer{}
+	bo := &output.BuffOut{Out: b, Err: b}
+	*verboseFlag = true
+
+	headers := map[string]string{}
+	headers["X-TEST"] = "abc123def"
+
+	printRequest(0, "http://test.fake", headers, bo)
+	assert.Equal("\nGET http://test.fake \n\nX-TEST: abc123def    \n\n", b.String())
+}
+
+func TestCalculateTimeout(t *testing.T) {
+	assert := assert.New(t)
+
+	*timeoutFlag = ""
+	gulpConfig = config.New
+	assert.Equal(config.DefaultTimeout, calculateTimeout())
+}
+
+func TestCalculateTimeoutFlag(t *testing.T) {
+	assert := assert.New(t)
+
+	gulpConfig = config.New
+	*timeoutFlag = "100"
+	assert.Equal(100, calculateTimeout())
+}
+
+func TestCalculateTimeoutFlagInvalid(t *testing.T) {
+	assert := assert.New(t)
+
+	gulpConfig = config.New
+	*timeoutFlag = "abc123"
+	assert.Equal(config.DefaultTimeout, calculateTimeout())
 }

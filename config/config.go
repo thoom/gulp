@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
+	"strconv"
 
 	"github.com/ghodss/yaml"
 )
@@ -12,8 +13,12 @@ type Config struct {
 	URL     string            `json:"url"`
 	Headers map[string]string `json:"headers"`
 	Display string            `json:"display"`
+	Timeout string            `json:"timeout"`
 	Flags   map[string]string `json:"flags"`
 }
+
+// DefaultTimeout is 5 minutes (300 seconds)
+const DefaultTimeout = 300
 
 // New creates a default configuration object
 var New *Config
@@ -28,18 +33,34 @@ func newConfig() *Config {
 }
 
 // FollowRedirects determines whether or not to follow 301/302 redirects
-func (gc Config) FollowRedirects() bool {
+func (gc *Config) FollowRedirects() bool {
 	return gc.Flags["follow_redirects"] != "false"
 }
 
 // UseColor adds a switch for whether or not to colorize the output
-func (gc Config) UseColor() bool {
+func (gc *Config) UseColor() bool {
 	return gc.Flags["use_color"] != "false"
 }
 
 // VerifyTLS determines whether or not to verify that a TLS cert is valid
-func (gc Config) VerifyTLS() bool {
+func (gc *Config) VerifyTLS() bool {
 	return gc.Flags["verify_tls"] != "false"
+}
+
+// GetTimeout Parses the config string and returns the default if the value wasn't passed
+func (gc *Config) GetTimeout() int {
+	// If the timeout is empty, just return 300
+	if gc.Timeout == "" {
+		return DefaultTimeout
+	}
+
+	i, err := strconv.ParseInt(gc.Timeout, 10, 64)
+	if err != nil {
+		// For now, if the timeout is not valid, then return 300
+		return DefaultTimeout
+	}
+
+	return int(i)
 }
 
 func init() {

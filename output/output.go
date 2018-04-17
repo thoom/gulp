@@ -24,7 +24,7 @@ func init() {
 
 // PrintWarning outputs a warning
 func (bo *BuffOut) PrintWarning(txt string) {
-	fmt.Fprintln(bo.Out, color.New(color.FgYellow, color.Bold).Sprintf("WARNING: %s ", strings.ToUpper(txt)))
+	fmt.Fprintln(bo.Out, color.New(color.FgYellow, color.Bold).Sprintf("WARNING: %s", strings.ToUpper(txt)))
 }
 
 // PrintStoplight will print out red if stopped is true, green if not

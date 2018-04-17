@@ -49,7 +49,7 @@ There are several ways to download and install the `gulp` client.
 
 ### Releases
 
-Download the appropriate binary from the [Github releases](https://github.com/thoom/gulp/releases) section.
+Download the appropriate binary from the [Github Releases](https://github.com/thoom/gulp/releases) section.
 
 ## Usage
 Once installed, the client is easy to use without extra configuration. 
@@ -103,15 +103,18 @@ Use the `-c` argument to load a different configuration file.
 	Allowed values are `verbose` and `status-code-only`.
 	These can be overridden by the `-ro`, `-sco`, and `-v` cli flags. 
 
+* __timeout__: How long to wait for a response from the remote server.
+	Defaults to 300 seconds. Can be overridden by the `-timeout` cli argument.
+
 * __flags__: Options that are enabled by default and can be disabled:
-  * __follow_redirects__: Whether or not to follow `3XX` HTTP redirects. 
+  * __follow_redirects__: Follow `3XX` HTTP redirects. 
 	Can be disabled with the `-no-redirect` flag.
   
-  * __use_color__: Whether or not to colorize verbose responses. 
+  * __use_color__: Colorize verbose responses. 
 	Can be disabled with the `-no-color` flag.
   
-  * __verify_tls__: Whether or not to check TLS certificates. 
-	Can be disabled with the `-k` flag.
+  * __verify_tls__: Verify SSL/TLS certificates. 
+	Can be disabled with the `-insecure` flag.
 
 ## POST Payload
 
