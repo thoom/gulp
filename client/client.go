@@ -36,6 +36,7 @@ func CreateRequest(method string, url string, body string, headers map[string]st
 	return req, nil
 }
 
+// CreateClient will create a new http.Client with basic defaults
 func CreateClient(followRedirects bool, timeout int) *http.Client {
 	if !followRedirects {
 		return &http.Client{
