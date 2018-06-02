@@ -25,7 +25,7 @@ func TestCreateRequest(t *testing.T) {
 	headers := map[string]string{}
 	headers["X-Test-Header"] = "abc123def"
 
-	req, err := CreateRequest(method, url, "", headers)
+	req, err := CreateRequest(method, url, nil, headers)
 	assert.Nil(err)
 	assert.Equal(url, req.URL.String())
 	assert.Equal(method, req.Method)
@@ -39,7 +39,7 @@ func TestCreateRequestGetWithBody(t *testing.T) {
 
 	method := "GET"
 	url := "http://test.ex.io"
-	body := "body!"
+	body := []byte("body!")
 
 	req, err := CreateRequest(method, url, body, map[string]string{})
 	assert.Nil(err)
@@ -56,7 +56,7 @@ func TestCreateRequestPostWithBody(t *testing.T) {
 	url := "http://test.ex.io"
 	body := "body!"
 
-	req, err := CreateRequest(method, url, body, map[string]string{})
+	req, err := CreateRequest(method, url, []byte(body), map[string]string{})
 	assert.Nil(err)
 	assert.Equal(url, req.URL.String())
 	assert.Equal(method, req.Method)

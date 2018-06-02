@@ -2,15 +2,15 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"testing"
 
-	"github.com/thoom/gulp/config"
-
 	"github.com/fatih/color"
+	"github.com/thoom/gulp/config"
 	"github.com/thoom/gulp/output"
 
 	"github.com/stretchr/testify/assert"
@@ -211,6 +211,9 @@ func TestHandleResponse(t *testing.T) {
 	w := httptest.NewRecorder()
 	handler(w, req)
 
+	// Disable color output for now
+	output.NoColor(true)
+
 	b := &bytes.Buffer{}
 	bo := &output.BuffOut{Out: b, Err: b}
 	handleResponse(w.Result(), 10, bo)
@@ -242,7 +245,8 @@ func TestHandleResponseStatusCode(t *testing.T) {
 func TestGetPostBodyEmpty(t *testing.T) {
 	assert := assert.New(t)
 
-	body := getPostBody()
+	body, err := getPostBody(os.Stdin)
+	assert.Nil(err)
 	assert.Empty(body)
 }
 
@@ -250,13 +254,42 @@ func TestGetPostBody(t *testing.T) {
 	assert := assert.New(t)
 
 	testFile, _ := ioutil.TempFile(os.TempDir(), "test_post_body")
-	ioutil.WriteFile(testFile.Name(), []byte("salutation: hello world"), 0644)
+	ioutil.WriteFile(testFile.Name(), []byte("salutation: hello world\nvalediction: goodbye world"), 0644)
 
-	os.Stdin, _ = os.Open(testFile.Name())
-	defer os.Stdin.Close()
+	f, _ := os.Open(testFile.Name())
+	defer f.Close()
 
-	body := getPostBody()
-	assert.Equal("{\"salutation\":\"hello world\"}", body)
+	body, err := getPostBody(f)
+	assert.Nil(err)
+	assert.Equal("salutation: hello world\nvalediction: goodbye world", string(body))
+}
+
+func TestConvertJSONBody(t *testing.T) {
+	assert := assert.New(t)
+
+	yaml := `
+salutation: hello world
+valediction: goodbye world
+`
+	body, err := convertJSONBody([]byte(yaml), map[string]string{"CONTENT-TYPE": "application/json"})
+	assert.Nil(err)
+	assert.Equal("{\"salutation\":\"hello world\",\"valediction\":\"goodbye world\"}", string(body))
+}
+
+func TestConvertJSONBodyNotJSON(t *testing.T) {
+	assert := assert.New(t)
+
+	body, err := convertJSONBody([]byte("Not JSON, but plain text"), map[string]string{"CONTENT-TYPE": "text/plain"})
+	assert.Nil(err)
+	assert.Equal("Not JSON, but plain text", string(body))
+}
+
+func TestConvertJSONBodyInvalidJson(t *testing.T) {
+	assert := assert.New(t)
+
+	body, err := convertJSONBody([]byte{255, 253}, map[string]string{"CONTENT-TYPE": "application/json"})
+	assert.Nil(body)
+	assert.Contains(fmt.Sprintf("%s", err), "Could not parse post body: yaml:")
 }
 
 func TestDisableColorOutput(t *testing.T) {

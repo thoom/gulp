@@ -1,11 +1,11 @@
 package client
 
 import (
+	"bytes"
 	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 )
 
@@ -17,12 +17,12 @@ func DisableTLSVerification() {
 }
 
 // CreateRequest will create a request object
-func CreateRequest(method string, url string, body string, headers map[string]string) (*http.Request, error) {
+func CreateRequest(method string, url string, body []byte, headers map[string]string) (*http.Request, error) {
 	var reader io.Reader
 
 	// Don't build the read if using a GET/HEAD request
-	if method != "GET" && method != "HEAD" && body != "" {
-		reader = strings.NewReader(body)
+	if method != "GET" && method != "HEAD" && body != nil {
+		reader = bytes.NewReader(body)
 	}
 
 	req, err := http.NewRequest(method, url, reader)

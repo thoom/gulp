@@ -1,4 +1,4 @@
-docker run --rm -it -v $PWD:/go/src/github.com/thoom/gulp -w /go/src/github.com/thoom/gulp -e TRAVIS_BRANCH golang:alpine sh -c "apk add --update --no-cache git && go get -d ./... && go build -ldflags \"-X github.com/thoom/gulp/client.buildVersion=$TRAVIS_BRANCH\" -o gulp-alpine"
-env GOOS=linux GOARCH=386 go build -ldflags "-X github.com/thoom/gulp/client.buildVersion=$TRAVIS_BRANCH" -o gulp-linux-386
-env GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/thoom/gulp/client.buildVersion=$TRAVIS_BRANCH" -o gulp-linux-amd64
-env GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/thoom/gulp/client.buildVersion=$TRAVIS_BRANCH" -o gulp-darwin
+docker run --rm -it -v $PWD:/go/src/github.com/thoom/gulp -w /go/src/github.com/thoom/gulp -e TRAVIS_BRANCH golang:alpine sh -c "apk add --update --no-cache git && go get -d ./... && go build -ldflags \"-X github.com/thoom/gulp/client.buildVersion=$TRAVIS_BRANCH-alpine\" -o gulp-alpine"
+env GOOS=linux GOARCH=386 go build -ldflags "-X github.com/thoom/gulp/client.buildVersion=$TRAVIS_BRANCH-linux386" -o gulp-linux-386
+env GOOS=linux GOARCH=amd64 go build -ldflags "-X github.com/thoom/gulp/client.buildVersion=$TRAVIS_BRANCH-linux64" -o gulp-linux-amd64
+env GOOS=darwin GOARCH=amd64 go build -ldflags "-X github.com/thoom/gulp/client.buildVersion=$TRAVIS_BRANCH-darwin" -o gulp-darwin

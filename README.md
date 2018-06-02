@@ -1,11 +1,10 @@
 # gulp [![Build Status](https://travis-ci.org/thoom/gulp.svg?branch=master)](https://travis-ci.org/thoom/gulp) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![codecov](https://codecov.io/gh/thoom/gulp/branch/master/graph/badge.svg)](https://codecov.io/gh/thoom/gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
 
-Gulp is a YAML-oriented HTTP CLI client for JSON APIs. When interacting with an API, Gulp accepts
-either JSON or YAML. Since JSON is a subset of the YAML specification, YAML payloads are effortlessly
-converted to JSON when submitting to the API.
+Gulp is an HTTP CLI client favoring JSON APIs. 
 
-Some advantages to using YAML instead of JSON include being able to have comments 
-and not requiring superfluous usage of curly braces and quotation marks.
+When interacting with an API, Gulp by default expects either JSON or YAML payloads. Since JSON is a subset of the YAML specification, YAML payloads are effortlessly converted to JSON when submitting to the API.
+
+Some advantages to using YAML instead of JSON include being able to have comments and not requiring superfluous usage of curly braces and quotation marks.
 
 For instance, a sample YAML configuration file:
 
@@ -118,8 +117,13 @@ Use the `-c` argument to load a different configuration file.
 
 ## POST Payload
 
-You can use either JSON or YAML as a payload to a posted endpoint.
-The command to post data: `gulp -m POST https://api.ex.io/message < postData.yml`
+Since Gulp prefers JSON/YAML payloads _(Note: YAML is converted to the JSON automatically)_, using either is easy. The command to post data: 
+
+```gulp -m POST https://api.ex.io/message < postData.yml```
+
+To post a payload other than JSON/YAML, the command is slightly more complicated since a content-type must be passed. The command:
+
+```gulp -m POST -H "Content-Type: image/jpeg" https://api.ex.io/photo < me.jpg```
 
 ## Load Testing
 

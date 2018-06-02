@@ -92,11 +92,24 @@ func main() {
 	// If the disableRedirectFlag is false and follow redirects is false, then set the flag to true
 	followRedirect := shouldFollowRedirects()
 
+	var body []byte
 	// Don't get the post body if it's a GET/HEAD request
-	body := ""
 	if *methodFlag != "GET" && *methodFlag != "HEAD" {
-		body = getPostBody()
+		var err error
+		body, err = getPostBody(os.Stdin)
+		if err != nil {
+			output.ExitErr("", err)
+		}
 	}
+
+	// Build request headers
+	headers, err := client.BuildHeaders(reqHeaders, gulpConfig.Headers, body != nil)
+	if err != nil {
+		output.ExitErr("", err)
+	}
+
+	// Convert the YAML/JSON body if necessary
+	convertJSONBody(body, headers)
 
 	iteration := 0
 	for i := 0; i < *repeatFlag; i += *concurrentFlag {
@@ -117,20 +130,15 @@ func main() {
 				if *repeatFlag > 1 {
 					iteration++
 				}
-				processRequest(url, body, iteration, followRedirect, i, c)
+				processRequest(url, body, headers, iteration, followRedirect, i, c)
 			}(c)
 		}
 		wg.Wait()
 	}
 }
 
-func processRequest(url string, body string, iteration int, followRedirect bool, i int, c int) {
+func processRequest(url string, body []byte, headers map[string]string, iteration int, followRedirect bool, i int, c int) {
 	var startTimer time.Time
-
-	headers, err := client.BuildHeaders(reqHeaders, gulpConfig.Headers, body != "")
-	if err != nil {
-		output.ExitErr("", err)
-	}
 
 	req, err := client.CreateRequest(*methodFlag, url, body, headers)
 	if err != nil {
@@ -236,30 +244,45 @@ func handleResponse(resp *http.Response, duration float64, bo *output.BuffOut) {
 	fmt.Fprintln(bo.Out, string(body))
 }
 
-func getPostBody() string {
-	stat, _ := os.Stdin.Stat()
-	body := ""
+func getPostBody(input *os.File) ([]byte, error) {
+	stat, _ := input.Stat()
 
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		scanner := bufio.NewScanner(os.Stdin)
+		scanner := bufio.NewScanner(input)
 		var stdin []byte
+		first := true
 		for scanner.Scan() {
-			stdin = append(append(stdin, scanner.Bytes()...), []byte("\n")...)
+			if first {
+				first = false
+			} else {
+				stdin = append(stdin, []byte("\n")...)
+			}
+
+			stdin = append(stdin, scanner.Bytes()...)
 		}
 
 		if err := scanner.Err(); err != nil {
-			output.ExitErr("Reading standard input", err)
+			return nil, fmt.Errorf("Reading standard input: %s", err)
 		}
 
-		j, err := yaml.YAMLToJSON(stdin)
-		if err != nil {
-			output.ExitErr("Could not parse post body", err)
-		}
-
-		body = string(j)
+		return stdin, nil
 	}
 
-	return body
+	return nil, nil
+}
+
+func convertJSONBody(body []byte, headers map[string]string) ([]byte, error) {
+	// Determine if we should convert the body to JSON
+	if !strings.Contains(headers["CONTENT-TYPE"], "json") {
+		return body, nil
+	}
+
+	j, err := yaml.YAMLToJSON(body)
+	if err != nil {
+		return nil, fmt.Errorf("Could not parse post body: %s", err)
+	}
+
+	return j, nil
 }
 
 func disableColorOutput() {
