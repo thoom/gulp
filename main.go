@@ -111,33 +111,24 @@ func main() {
 	// Convert the YAML/JSON body if necessary
 	convertJSONBody(body, headers)
 
-	iteration := 0
-	for i := 0; i < *repeatFlag; i += *concurrentFlag {
-		var wg sync.WaitGroup
-
-		ci := *concurrentFlag
-		if i >= *concurrentFlag {
-			remaining := *repeatFlag - i
-			if remaining < ci {
-				ci = remaining
+	maxChan := make(chan bool, *concurrentFlag)
+	var wg sync.WaitGroup
+	for i := 0; i < *repeatFlag; i++ {
+		wg.Add(1)
+		maxChan <- true
+		go func(iteration int, maxChan chan bool, wg *sync.WaitGroup) {
+			defer wg.Done()
+			defer func(maxChan chan bool) { <-maxChan }(maxChan)
+			if *repeatFlag > 1 {
+				iteration++
 			}
-		}
-
-		for c := 0; c < ci; c++ {
-			wg.Add(1)
-			go func(c int) {
-				defer wg.Done()
-				if *repeatFlag > 1 {
-					iteration++
-				}
-				processRequest(url, body, headers, iteration, followRedirect, i, c)
-			}(c)
-		}
-		wg.Wait()
+			processRequest(url, body, headers, iteration, followRedirect)
+		}(i, maxChan, &wg)
 	}
+	wg.Wait()
 }
 
-func processRequest(url string, body []byte, headers map[string]string, iteration int, followRedirect bool, i int, c int) {
+func processRequest(url string, body []byte, headers map[string]string, iteration int, followRedirect bool) {
 	var startTimer time.Time
 
 	req, err := client.CreateRequest(*methodFlag, url, body, headers)
