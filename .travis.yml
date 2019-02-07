@@ -1,32 +1,38 @@
+dist: trusty
 language: go
 sudo: false
+addons:
+  sonarcloud:
+    organization: "thoom-github"
+    token:
+      secure: cxsV2bpceOgvYbp8znQuEnn3I2M1qL1VhspSLSqiLW4CIjM2r55/x+rthUoLjToyqHxbbbCOclJ0JwryOcWUaiUvoC4nykjdtWRZsRwaNK+wXhBLPGK/+FSnTjpl1ov3MXMPl37xEMXlhFb9LzZsLmojf6Nf1OK1IbQojJysP9iXxcUPBnQUooUhK8CSUdPe6g6aHOJEMwr0vif0tT0ae4gxTq2HOsEerbZF85AEM7/N1kHzDUXt2AE7FMvYGcTIsLuUemsqgu1gwbNMxdEVW0jjKdmhMz82ZC0XkcNpHGpfcHQwtBCZ7LPLoo6NsOsRRMLgJklFu2xMBTbc6HuTo5+epqZmoIC9sRUfYlDdSzhSIlTY3S7pFJ2ABFbaeFDvbSjUgY+xSPZ62QycHt/Q9pAwsaLw89iNt3qYZUmOm2QO7RbLoHKZRz1BSUilqIMBEfjP0H1yW5Nn0b6khv7BlH2d/eGLcL+bKEzlrf6ZrfP/zx9vXAYq5fG/dJ114bW9tpLxDiqpLSoHkBCHKVi6e0ZCgwdmGvmXJ9ZEXft0afk9eP13xrPtm6glRtPnrv5+sZ16ie1YVLChWLh2HTUxgRyQBeWi3OETNFT29Cp4yPYPGyF2bL4XJiU0KZZPn4UWkN1JlX9B4L7gKt/3Dch/mJs9xK4ol7badX2IDTqy8bs=
 go:
-  - '1.10'
-  - tip
+- '1.11'
 services:
-  - docker
+- docker
 before_install:
-  - go get -t -v ./...
+- go get -t -v ./...
 script:
-  - go test ./... -race -coverprofile=coverage.txt -covermode=atomic
+- go test ./... -race -coverprofile=coverage.txt -covermode=atomic
+- sonar-scanner
 after_success:
-  - bash <(curl -s https://codecov.io/bash)
+- bash <(curl -s https://codecov.io/bash)
 before_deploy:
-  - scripts/build.sh
+- scripts/build.sh
 deploy:
-  - provider: releases
-    api_key:
-      secure: Py2jGvjm+UrN49vPWQFdWVs+yzG7xabbRQ1x8DXsT4wQ+OlGLPDKGdm7LcHcz00DdqSS5ausZKpROzAJ8kwbiidHPhFFt7zjVGTl3Hgl46CysPo5d9hM1lbjplu3iNtI3y9jqtSuZBSr6sWvCV/hqRH4oFPkZ1sxnRd8XGRsL8kwOpupIbqsQJ8DNNxfXQScS1PIqWgvTtitv/uwG57qiXYH99KArvepfB431lV6hC7DqgkiJTPDUrQCqv8u/tCsqPgE9RznDFtMax5pnOaKfWeRs+h8uanahx/0u1whonF0JBoCassHr5Isup5yRjNuh5D8wJM+rpxWSaKVtlI7oSUGVeG+W4ARfcFCPadN64IGvx4mpGlMJ9kRc0rhe5oX6vehp8KzMXvivCbGz9O6aZ2kvk7Kkfv3paC0n4vqT6hQaTKybGQ6x11eM2Ll8vFDnv3lSSVUzdM97FjVcd1W09coSA41rzYJKI3Hj7TqJEq2+ddp6j7XBsW1n0QtawHJuMFZCqNotrdJ6At0CNAGZ327LD7i8Nri28ksi3JLd9CgC7QPEdhPCMqvBFTXAc3FiYiWHBYSD1uTuYSmcRvVUlWOGMQ/y0H8aUtCYWeI2nIzrHHUWgOoR1I6acjNlr+LQ86RI4AvaaJqg+Wm0YlrP3U5VgXyWQxReaXS72BQAD4=
-    file:
-      - gulp-linux-386
-      - gulp-linux-amd64
-      - gulp-darwin
-      - gulp-windows
-    skip_cleanup: true
-    on:
-      tags: true
-  - provider: script
-    script: scripts/deploy.sh
-    skip_cleanup: true
-    on:
-      tags: true
+- provider: releases
+  api_key:
+    secure: Py2jGvjm+UrN49vPWQFdWVs+yzG7xabbRQ1x8DXsT4wQ+OlGLPDKGdm7LcHcz00DdqSS5ausZKpROzAJ8kwbiidHPhFFt7zjVGTl3Hgl46CysPo5d9hM1lbjplu3iNtI3y9jqtSuZBSr6sWvCV/hqRH4oFPkZ1sxnRd8XGRsL8kwOpupIbqsQJ8DNNxfXQScS1PIqWgvTtitv/uwG57qiXYH99KArvepfB431lV6hC7DqgkiJTPDUrQCqv8u/tCsqPgE9RznDFtMax5pnOaKfWeRs+h8uanahx/0u1whonF0JBoCassHr5Isup5yRjNuh5D8wJM+rpxWSaKVtlI7oSUGVeG+W4ARfcFCPadN64IGvx4mpGlMJ9kRc0rhe5oX6vehp8KzMXvivCbGz9O6aZ2kvk7Kkfv3paC0n4vqT6hQaTKybGQ6x11eM2Ll8vFDnv3lSSVUzdM97FjVcd1W09coSA41rzYJKI3Hj7TqJEq2+ddp6j7XBsW1n0QtawHJuMFZCqNotrdJ6At0CNAGZ327LD7i8Nri28ksi3JLd9CgC7QPEdhPCMqvBFTXAc3FiYiWHBYSD1uTuYSmcRvVUlWOGMQ/y0H8aUtCYWeI2nIzrHHUWgOoR1I6acjNlr+LQ86RI4AvaaJqg+Wm0YlrP3U5VgXyWQxReaXS72BQAD4=
+  file:
+  - gulp-linux-386
+  - gulp-linux-amd64
+  - gulp-darwin
+  - gulp-windows
+  skip_cleanup: true
+  on:
+    tags: true
+- provider: script
+  script: scripts/deploy.sh
+  skip_cleanup: true
+  on:
+    tags: true
