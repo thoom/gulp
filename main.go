@@ -109,7 +109,10 @@ func main() {
 	}
 
 	// Convert the YAML/JSON body if necessary
-	convertJSONBody(body, headers)
+	body, err = convertJSONBody(body, headers)
+	if err != nil {
+		output.ExitErr("", err)
+	}
 
 	maxChan := make(chan bool, *concurrentFlag)
 	var wg sync.WaitGroup
