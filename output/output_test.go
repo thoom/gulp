@@ -3,6 +3,7 @@ package output
 import (
 	"bytes"
 	"fmt"
+	"runtime"
 	"testing"
 
 	"github.com/fatih/color"
@@ -98,6 +99,7 @@ func TestPrintVersion(t *testing.T) {
 
 	b := &bytes.Buffer{}
 	tst := &BuffOut{Out: b, Err: b}
+	expected := fmt.Sprintf("\nthoom.Gulp                              \n\ngulp version: abc123def                 \ngo version: %s                    \nauthor: Z.d.Peacock <zdp@thoomtech.com> \nlink: https://github.com/thoom/gulp     \n\n", runtime.Version())
 	tst.PrintVersion("abc123def")
-	assert.Equal("\nthoom.Gulp                              \n\nversion: abc123def                      \nauthor: Z.d.Peacock <zdp@thoomtech.com> \nlink: https://github.com/thoom/gulp     \n\n", b.String())
+	assert.Equal(expected, b.String())
 }

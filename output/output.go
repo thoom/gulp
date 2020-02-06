@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"runtime"
 	"strings"
 
 	"github.com/fatih/color"
@@ -90,9 +91,10 @@ func (bo *BuffOut) PrintErr(txt string, err error) {
 // PrintVersion will output the current version and colophon
 func (bo *BuffOut) PrintVersion(version string) {
 	bo.PrintBlock(fmt.Sprintf(`thoom.Gulp
-version: %s
+gulp version: %s
+go version: %s
 author: Z.d.Peacock <zdp@thoomtech.com>
-link: https://github.com/thoom/gulp`, version))
+link: https://github.com/thoom/gulp`, version, runtime.Version()))
 
 	fmt.Fprintln(bo.Out, "")
 }
