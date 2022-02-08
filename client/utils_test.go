@@ -61,7 +61,7 @@ func TestBuildHeadersHeaderErr(t *testing.T) {
 
 	_, err := BuildHeaders([]string{"Bad-Content-Header"}, nil, true)
 	assert.NotNil(err)
-	assert.Equal("Could not parse header: 'Bad-Content-Header'", fmt.Sprintf("%s", err))
+	assert.Equal("could not parse header: 'Bad-Content-Header'", fmt.Sprintf("%s", err))
 }
 
 func TestBuildURLBasic(t *testing.T) {
@@ -93,7 +93,7 @@ func TestBuildURLBadURL(t *testing.T) {
 	url, err := BuildURL("/bad/path", "")
 	assert.Empty(url)
 	assert.NotNil(err)
-	assert.Equal("Invalid URL", fmt.Sprintf("%s", err))
+	assert.Equal("invalid URL", fmt.Sprintf("%s", err))
 }
 
 func TestBuildURLNoURL(t *testing.T) {
@@ -101,7 +101,7 @@ func TestBuildURLNoURL(t *testing.T) {
 	url, err := BuildURL("", "")
 	assert.Empty(url)
 	assert.NotNil(err)
-	assert.Equal("Need a URL to make a request", fmt.Sprintf("%s", err))
+	assert.Equal("need a URL to make a request", fmt.Sprintf("%s", err))
 }
 
 func TestGetVersion(t *testing.T) {
