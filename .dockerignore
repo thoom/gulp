@@ -1,0 +1,9 @@
+gulp
+
+.git
+.gitignore
+.travis.yml
+
+*.md
+*.properties
+*.sh

@@ -26,7 +26,8 @@ deploy:
     file:
       - gulp-linux-386
       - gulp-linux-amd64
-      - gulp-darwin
+      - gulp-darwin-amd64
+      - gulp-darwin-arm64
       - gulp-windows
     skip_cleanup: true
     on:
