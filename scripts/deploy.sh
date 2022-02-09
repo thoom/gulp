@@ -4,4 +4,5 @@ docker login -u $DOCKER_USER -p $DOCKER_PASS
 docker tag gulp thoom/gulp:latest
 docker tag gulp thoom/gulp:$RELEASE_VERSION
 
-docker push thoom/gulp
+docker push thoom/gulp:latest
+docker push thoom/gulp:$RELEASE_VERSION
