@@ -6,7 +6,7 @@ COPY . /thoom/gulp
 WORKDIR /thoom/gulp
 RUN apk add --update --no-cache git ca-certificates
 RUN go get -d ./... 
-RUN CGO_ENABLED=0 go build -ldflags "-X github.com/thoom/gulp/client.buildVersion=$BUILD_VERSION-buildkit" -o gulp
+RUN CGO_ENABLED=0 go build -ldflags "-X github.com/thoom/gulp/client.buildVersion=$BUILD_VERSION" -o gulp
 RUN touch /tmp/hosts
 
 FROM scratch

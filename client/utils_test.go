@@ -2,6 +2,8 @@ package client
 
 import (
 	"fmt"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,7 +16,7 @@ func TestBuildHeadersBase(t *testing.T) {
 	assert.Equal(3, len(headers))
 
 	assert.Contains(headers, "USER-AGENT")
-	assert.Equal("thoom.Gulp/"+GetVersion(), headers["USER-AGENT"])
+	assert.Equal(CreateUserAgent(), headers["USER-AGENT"])
 
 	assert.Contains(headers, "ACCEPT")
 	assert.Equal("application/json;q=1.0, */*;q=0.8", headers["ACCEPT"])
@@ -111,9 +113,23 @@ func TestGetVersion(t *testing.T) {
 	assert.Equal(defaultVersion, GetVersion())
 }
 
+func TestGetVersionSnapshot(t *testing.T) {
+	assert := assert.New(t)
+
+	buildVersion = "snapshot"
+	assert.Equal(defaultVersion, GetVersion())
+}
+
 func TestGetVersionEnv(t *testing.T) {
 	assert := assert.New(t)
 
 	buildVersion = "TestVersion"
 	assert.Equal("TestVersion", GetVersion())
+}
+
+func TestCreateUserAgent(t *testing.T) {
+	assert := assert.New(t)
+
+	expected := fmt.Sprintf("thoom.Gulp/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
+	assert.Equal(expected, CreateUserAgent())
 }
