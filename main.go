@@ -154,7 +154,7 @@ func processRequest(url string, body []byte, headers map[string]string, iteratio
 		output.ExitErr("Something unexpected happened", err)
 	}
 
-	handleResponse(resp, time.Now().Sub(startTimer).Seconds(), bo)
+	handleResponse(resp, time.Since(startTimer).Seconds(), bo)
 }
 
 func printRequest(iteration int, url string, headers map[string]string, bo *output.BuffOut) {
@@ -256,7 +256,7 @@ func getPostBody(input *os.File) ([]byte, error) {
 		}
 
 		if err := scanner.Err(); err != nil {
-			return nil, fmt.Errorf("Reading standard input: %s", err)
+			return nil, fmt.Errorf("reading standard input: %s", err)
 		}
 
 		return stdin, nil
@@ -273,7 +273,7 @@ func convertJSONBody(body []byte, headers map[string]string) ([]byte, error) {
 
 	j, err := yaml.YAMLToJSON(body)
 	if err != nil {
-		return nil, fmt.Errorf("Could not parse post body: %s", err)
+		return nil, fmt.Errorf("could not parse post body: %s", err)
 	}
 
 	return j, nil
@@ -331,10 +331,8 @@ func shouldFollowRedirects() bool {
 			switch os.Args[i] {
 			case "-no-redirect":
 				*disableRedirectFlag = true
-				break
 			case "-follow-redirect":
 				*followRedirectFlag = true
-				break
 			default:
 				continue
 			}
@@ -389,13 +387,10 @@ func filterDisplayFlags() {
 		switch os.Args[i] {
 		case "-ro":
 			*responseOnlyFlag = true
-			break
 		case "-sco":
 			*statusCodeOnlyFlag = true
-			break
 		case "-v":
 			*verboseFlag = true
-			break
 		default:
 			continue
 		}

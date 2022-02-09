@@ -27,7 +27,7 @@ func CreateRequest(method string, url string, body []byte, headers map[string]st
 
 	req, err := http.NewRequest(method, url, reader)
 	if err != nil {
-		return nil, fmt.Errorf("Could not build request: %s", err)
+		return nil, fmt.Errorf("could not build request: %s", err)
 	}
 
 	for k, v := range headers {

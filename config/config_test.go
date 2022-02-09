@@ -32,7 +32,7 @@ func TestLoadConfigurationMissing(t *testing.T) {
 
 	_, err := LoadConfiguration("invalidFile.yml")
 	assert.NotNil(err)
-	assert.Contains(fmt.Sprintf("%s", err), "Could not load configuration")
+	assert.Contains(fmt.Sprintf("%s", err), "could not load configuration")
 }
 
 func TestLoadConfigurationNoParse(t *testing.T) {
@@ -43,7 +43,7 @@ func TestLoadConfigurationNoParse(t *testing.T) {
 	ioutil.WriteFile(testFile.Name(), []byte{255, 253}, 0644)
 	_, err := LoadConfiguration(testFile.Name())
 	assert.NotNil(err)
-	assert.Contains(fmt.Sprintf("%s", err), "Could not parse configuration")
+	assert.Contains(fmt.Sprintf("%s", err), "could not parse configuration")
 }
 
 func TestLoadConfigurationMissingTimeout(t *testing.T) {

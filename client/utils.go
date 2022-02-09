@@ -26,9 +26,9 @@ func BuildURL(path string, configURL string) (string, error) {
 
 	if url == "" {
 		if path == "" {
-			err = fmt.Errorf("Need a URL to make a request")
+			err = fmt.Errorf("need a URL to make a request")
 		} else {
-			err = fmt.Errorf("Invalid URL")
+			err = fmt.Errorf("invalid URL")
 		}
 	}
 
@@ -54,7 +54,7 @@ func BuildHeaders(reqHeaders []string, configHeaders map[string]string, includeJ
 	for _, header := range reqHeaders {
 		pieces := strings.Split(header, ":")
 		if len(pieces) != 2 {
-			return nil, fmt.Errorf("Could not parse header: '%s'", header)
+			return nil, fmt.Errorf("could not parse header: '%s'", header)
 		}
 
 		headers[strings.ToUpper(pieces[0])] = strings.TrimSpace(pieces[1])

@@ -76,12 +76,12 @@ func LoadConfiguration(fileName string) (*Config, error) {
 			return New, nil
 		}
 
-		return nil, fmt.Errorf("Could not load configuration '%s'", fileName)
+		return nil, fmt.Errorf("could not load configuration '%s'", fileName)
 	}
 
 	var gulpConfig *Config
 	if yaml.Unmarshal(dat, &gulpConfig) != nil {
-		return nil, fmt.Errorf("Could not parse configuration")
+		return nil, fmt.Errorf("could not parse configuration")
 	}
 
 	return gulpConfig, nil

@@ -289,7 +289,7 @@ func TestConvertJSONBodyInvalidJson(t *testing.T) {
 
 	body, err := convertJSONBody([]byte{255, 253}, map[string]string{"CONTENT-TYPE": "application/json"})
 	assert.Nil(body)
-	assert.Contains(fmt.Sprintf("%s", err), "Could not parse post body: yaml:")
+	assert.Contains(fmt.Sprintf("%s", err), "could not parse post body: yaml:")
 }
 
 func TestDisableColorOutput(t *testing.T) {

@@ -1,0 +1,9 @@
+gulp
+
+.git
+.github
+.gitignore
+
+*.md
+*.properties
+*.sh

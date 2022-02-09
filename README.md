@@ -1,5 +1,5 @@
-# gulp [![Build Status](https://travis-ci.org/thoom/gulp.svg?branch=master)](https://travis-ci.org/thoom/gulp) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![codecov](https://codecov.io/gh/thoom/gulp/branch/master/graph/badge.svg)](https://codecov.io/gh/thoom/gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
-
+# Gulp ![Builds](https://github.com/thoom/gulp/actions/workflows/test.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=coverage)](https://sonarcloud.io/summary/new_code?id=gulp) [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=gulp) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
+ 
 Gulp is an HTTP CLI client favoring JSON APIs. 
 
 When interacting with an API, Gulp by default expects either JSON or YAML payloads. Since JSON is a subset of the YAML specification, YAML payloads are effortlessly converted to JSON when submitting to the API.
@@ -134,7 +134,7 @@ There are 2 command line flags that can be used as a poor-man's load testing/thr
  * __-repeat-concurrent__: The number of concurrent connections to use to submit the request.
 
  For example, if you ran `gulp -repeat-times 100 -repeat-concurrent 10 /some/api`, 
- the CLI would make 10 concurrent requests 10 times in a row.
+ the CLI would make 100 total requests with a concurrency of 10 calls at a time (so it would average about 10 calls per thread).
  
  ## Library Dependencies
 
