@@ -1,4 +1,4 @@
-name: release
+name: Release
 on:
   push:
     branches:
@@ -42,7 +42,7 @@ jobs:
           ./scripts/build.sh
 
       # Deploy Docker release
-      - name: Build project
+      - name: Deploy Docker image
         if: "steps.tag.outputs.value != ''"
         env:
           RELEASE_VERSION: ${{ steps.tag.outputs.value }}
@@ -66,6 +66,7 @@ jobs:
           prerelease: false
 
       - name: Upload Linux 386
+        id: upload-release-l386
         uses: actions/upload-release-asset@v1
         if: "steps.tag.outputs.value != ''"
         env:
@@ -77,6 +78,7 @@ jobs:
           asset_content_type: application/x-executable
 
       - name: Upload Linux amd64
+        id: upload-release-l64
         uses: actions/upload-release-asset@v1
         if: "steps.tag.outputs.value != ''"
         env:
@@ -88,8 +90,8 @@ jobs:
           asset_content_type: application/x-executable
 
       - name: Upload Darwin amd64
+        id: upload-release-d64
         uses: actions/upload-release-asset@v1
-        if: "steps.tag.outputs.value != ''"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -99,8 +101,8 @@ jobs:
           asset_content_type: application/x-mach-binary
 
       - name: Upload Darwin arm64
+        id: upload-release-dArm64
         uses: actions/upload-release-asset@v1
-        if: "steps.tag.outputs.value != ''"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -110,6 +112,7 @@ jobs:
           asset_content_type: application/x-mach-binary
 
       - name: Upload Windows
+        id: upload-release-w
         uses: actions/upload-release-asset@v1
         if: "steps.tag.outputs.value != ''"
         env:
