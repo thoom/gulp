@@ -11,6 +11,7 @@ RUN touch /tmp/hosts
 
 FROM scratch
 LABEL author="Zach Peacock <zdp@thoomtech.com>"
+LABEL org.opencontainers.image.source="https://github.com/thoom/gulp"
 
 COPY --from=build /thoom/gulp/gulp /bin/
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
