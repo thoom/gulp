@@ -62,9 +62,12 @@ jobs:
       - name: Deploy Docker image
         if: "steps.tag.outputs.value != ''"
         env:
+          IMAGE_NAME: ${{ github.repository }}
           RELEASE_VERSION: ${{ steps.tag.outputs.value }}
           DOCKER_USER: ${{ secrets.DOCKER_USER }}
           DOCKER_PASS: ${{ secrets.DOCKER_PASS }}
+          GH_USER: ${{ github.actor }}
+          GH_PASS: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./scripts/deploy.sh
 

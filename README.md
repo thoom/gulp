@@ -1,4 +1,4 @@
-# Gulp ![Builds](https://github.com/thoom/gulp/actions/workflows/test.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=coverage)](https://sonarcloud.io/summary/new_code?id=gulp) [![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=gulp) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
+# Gulp ![Builds](https://github.com/thoom/gulp/actions/workflows/test.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=coverage)](https://sonarcloud.io/summary/overall?id=gulp) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=security_rating)](https://sonarcloud.io/summary/overall?id=gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
  
 Gulp is an HTTP CLI client favoring JSON APIs. 
 
@@ -44,7 +44,11 @@ There are several ways to download and install the `gulp` client.
 
 ### Using Docker
 
-	docker run --rm -it -v $PWD:/gulp thoom/gulp
+To learn more about the Docker image, see the [Github Packages](https://github.com/users/thoom/packages/container/package/gulp) section.
+
+**Basic usage**
+
+	docker run --rm -it -v $PWD:/gulp ghcr.io/thoom/gulp
 
 ### Releases
 
@@ -117,7 +121,7 @@ Use the `-c` argument to load a different configuration file.
 
 ## POST Payload
 
-Since Gulp prefers JSON/YAML payloads _(Note: YAML is converted to the JSON automatically)_, using either is easy. The command to post data: 
+Since Gulp prefers JSON/YAML payloads _(Note: YAML is converted to JSON automatically)_, using either is easy. The command to post data: 
 
 ```gulp -m POST https://api.ex.io/message < postData.yml```
 
