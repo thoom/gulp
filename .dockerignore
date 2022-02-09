@@ -1,8 +1,8 @@
 gulp
 
 .git
+.github
 .gitignore
-.travis.yml
 
 *.md
 *.properties
