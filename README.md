@@ -134,7 +134,7 @@ There are 2 command line flags that can be used as a poor-man's load testing/thr
  * __-repeat-concurrent__: The number of concurrent connections to use to submit the request.
 
  For example, if you ran `gulp -repeat-times 100 -repeat-concurrent 10 /some/api`, 
- the CLI would make 10 concurrent requests 10 times in a row.
+ the CLI would make 100 total requests with a concurrency of 10 calls at a time (so it would average about 10 calls per thread).
  
  ## Library Dependencies
 
