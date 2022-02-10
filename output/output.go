@@ -91,10 +91,10 @@ func (bo *BuffOut) PrintErr(txt string, err error) {
 // PrintVersion will output the current version and colophon
 func (bo *BuffOut) PrintVersion(version string) {
 	bo.PrintBlock(fmt.Sprintf(`thoom.Gulp
-gulp version: %s
+gulp version: %s-%s-%s
 go version: %s
 author: Z.d.Peacock <zdp@thoomtech.com>
-link: https://github.com/thoom/gulp`, version, runtime.Version()))
+link: https://github.com/thoom/gulp`, version, strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH), runtime.Version()))
 
 	fmt.Fprintln(bo.Out, "")
 }

@@ -2,6 +2,7 @@ package client
 
 import (
 	"fmt"
+	"runtime"
 	"strings"
 	"time"
 )
@@ -40,7 +41,7 @@ func BuildHeaders(reqHeaders []string, configHeaders map[string]string, includeJ
 	headers := make(map[string]string)
 
 	// Set the default User-Agent and Accept type
-	headers["USER-AGENT"] = fmt.Sprintf("thoom.Gulp/%s", GetVersion())
+	headers["USER-AGENT"] = CreateUserAgent()
 	headers["ACCEPT"] = "application/json;q=1.0, */*;q=0.8"
 
 	if includeJSON {
@@ -66,9 +67,13 @@ func BuildHeaders(reqHeaders []string, configHeaders map[string]string, includeJ
 // GetVersion builds the version from the build branch
 func GetVersion() string {
 	version := buildVersion
-	if version == "" {
+	if version == "" || version == "snapshot" {
 		version = defaultVersion
 	}
 
 	return version
+}
+
+func CreateUserAgent() string {
+	return fmt.Sprintf("thoom.Gulp/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
 }
