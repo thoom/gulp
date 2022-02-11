@@ -1,6 +1,6 @@
 # GULP ![Builds](https://github.com/thoom/gulp/actions/workflows/test.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=coverage)](https://sonarcloud.io/summary/overall?id=gulp) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=security_rating)](https://sonarcloud.io/summary/overall?id=gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
  
-GULP is a silly acronym for Get UrL Payload. It is an HTTP CLI client written in Go. It's primarily meant to work with modern REST APIs, so by default it expects either JSON or YAML payloads. YAML is effortlessly converted to JSON when used as a payload.
+GULP is a silly acronym for **G**et **U**r**L** **P**ayload. It is an HTTP CLI client written in Go. It's primarily meant to work with modern REST APIs, so by default it expects either JSON or YAML payloads. YAML is effortlessly converted to JSON when used as a payload.
 
 Some advantages to using YAML instead of JSON include being able to have comments and not requiring superfluous usage of curly braces and quotation marks.
 
@@ -129,7 +129,7 @@ If both are empty, then an error is returned.
 		Only display the response code
 -timeout seconds
 		The number of seconds to wait before the connection times out (default 300)
--v    Display the response body along with various headers
+-v		Display the response body along with various headers
 -version
 		Display the current client version
 ```
@@ -169,16 +169,34 @@ Use the `-c` argument to load a different configuration file.
 
 ## POST Payload
 
-Since GULP prefers JSON/YAML payloads _(Note: YAML is converted to JSON automatically)_, using either is easy. The command to post data: 
+Since GULP prefers JSON/YAML payloads _(Note: YAML is converted to JSON automatically)_, using either is easy. 
+
+### To post a payload of JSON or YAML
+
+The command:
 
 ```
 gulp -m POST https://api.ex.io/message < postData.yml
 ```
 
-To post a payload other than JSON/YAML, the command is slightly more complicated since a content-type must be passed. The command:
+OR
+
+```
+cat postData.yml | gulp -m POST https://api.ex.io/message
+```
+
+### To post a payload other than JSON/YAML
+
+The command is slightly more complicated since a content-type must be passed. The command:
 
 ```
 gulp -m POST -H "Content-Type: image/jpeg" https://api.ex.io/photo < me.jpg
+```
+
+OR 
+
+```
+cat me.jpg | gulp -m POST -H "Content-Type: image/jpeg" https://api.ex.io/photo
 ```
 
 ## Load Testing
