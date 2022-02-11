@@ -34,6 +34,18 @@ func TestCreateRequest(t *testing.T) {
 	assert.Nil(req.Body)
 }
 
+func TestCreateRequestBadMethod(t *testing.T) {
+	assert := assert.New(t)
+
+	method := "INVALID METHOD"
+	url := "http://test.ex.io"
+	headers := map[string]string{}
+
+	req, err := CreateRequest(method, url, nil, headers)
+	assert.Nil(req)
+	assert.Error(err)
+}
+
 func TestCreateRequestGetWithBody(t *testing.T) {
 	assert := assert.New(t)
 

@@ -20,7 +20,7 @@ func DisableTLSVerification() {
 func CreateRequest(method string, url string, body []byte, headers map[string]string) (*http.Request, error) {
 	var reader io.Reader
 
-	// Don't build the read if using a GET/HEAD request
+	// Don't build the reader if using a GET/HEAD request
 	if method != "GET" && method != "HEAD" && body != nil {
 		reader = bytes.NewReader(body)
 	}
