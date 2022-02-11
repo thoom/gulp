@@ -1,35 +1,37 @@
-# Gulp ![Builds](https://github.com/thoom/gulp/actions/workflows/test.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=coverage)](https://sonarcloud.io/summary/overall?id=gulp) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=security_rating)](https://sonarcloud.io/summary/overall?id=gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
+# GULP ![Builds](https://github.com/thoom/gulp/actions/workflows/test.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=coverage)](https://sonarcloud.io/summary/overall?id=gulp) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=security_rating)](https://sonarcloud.io/summary/overall?id=gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
  
-Gulp is an HTTP CLI client favoring JSON APIs. 
-
-When interacting with an API, Gulp by default expects either JSON or YAML payloads. Since JSON is a subset of the YAML specification, YAML payloads are effortlessly converted to JSON when submitting to the API.
+GULP is a silly acronym for Get UrL Payload. It is an HTTP CLI client written in Go. It's primarily meant to work with modern REST APIs, so by default it expects either JSON or YAML payloads. YAML is effortlessly converted to JSON when used as a payload.
 
 Some advantages to using YAML instead of JSON include being able to have comments and not requiring superfluous usage of curly braces and quotation marks.
 
 For instance, a sample YAML configuration file:
 
-	# Some comment here...
-	url: https://api.github.com
-	headers:
-	  X-Example-Header: abc123def
-	  X-Example-Header2: ghi456jkl
-	flags:
-	  use_color: true
+```
+# Some comment here...
+url: https://api.github.com
+headers:
+  X-Example-Header: abc123def
+  X-Example-Header2: ghi456jkl
+flags:
+  use_color: true
+```
 
 Its JSON equivalent:
 
-	{
-	  "url": "https://api.github.com",
-	  "headers": {
-	    "X-Example-Header": "abc123def",
-	    "X-Example-Header2": "ghi456jkl"
-	  },
-	  "flags": {
-	    "use_color": true
-	  }
-	}
+```
+{
+  "url": "https://api.github.com",
+  "headers": {
+    "X-Example-Header": "abc123def",
+    "X-Example-Header2": "ghi456jkl"
+  },
+  "flags": {
+    "use_color": true
+ }
+}
+```
 
-Gulp uses YAML/JSON for:
+GULP uses YAML/JSON for:
 
 1. configuration
 2. payload
@@ -38,41 +40,55 @@ Gulp uses YAML/JSON for:
 
 There are several ways to download and install the `gulp` client.
 
-### Using Go
+### Binary Releases
 
-	go get github.com/thoom/gulp
+The preferred method is to download the latest binary release for your platform from the [Github Releases](https://github.com/thoom/gulp/releases) section.
 
 ### Using Docker
 
-To learn more about the Docker image, see the [Github Packages](https://github.com/users/thoom/packages/container/package/gulp) section.
+If you already use Docker, GULP is packaged into a very small, OS-less image (~4 Mb compressed, 7.5 Mb uncompressed). To learn more about the Docker image, see the [Github Packages](https://github.com/users/thoom/packages/container/package/gulp) section.
 
 **Basic usage**
 
-	docker run --rm -it -v $PWD:/gulp ghcr.io/thoom/gulp
+```
+docker run --rm -it -v $PWD:/gulp ghcr.io/thoom/gulp
+```
 
-### Releases
+### Using Go
 
-Download the appropriate binary from the [Github Releases](https://github.com/thoom/gulp/releases) section.
+Finally, you can also just build it directly on your machine if you already have Go installed:
+
+```
+go get github.com/thoom/gulp
+```
 
 ## Usage
-Once installed, the client is easy to use without extra configuration. 
+Once installed, the client is easy to use without extra configuration. By default, the client makes a GET request to the endpoint.
 For instance to get user _foo_'s data from the Github API:
 
-	gulp https://api.github.com/users/foo
+```
+gulp https://api.github.com/users/foo
+```
 
 Want more info about the request, like the request headers passed and the response headers received?
 
-	gulp -v https://api.github.com/users/foo
+```
+gulp -v https://api.github.com/users/foo
+```
 
 Imagine that you are going to be working frequently with the Github API. 
 Create a configuration file (details described below) to simplify the interactions.
 
-	# .gulp.yml
-	url: https://api.github.com
+```
+# .gulp.yml
+url: https://api.github.com
+```
 
 Now you can just call:
 
-	gulp -v /users/foo
+```
+gulp -v /users/foo
+```
 
 This exposes how the client builds the final URL from 2 parts: the _config.URL_ and the _Path_.
 
@@ -85,6 +101,38 @@ If the _[PATH]_ starts with `http`, then the client will ignore the _config.URL_
 If the _[PATH]_ is empty, then the client will just use the _config.URL_.
 
 If both are empty, then an error is returned.
+
+## CLI Flags
+
+```
+-H request
+		Set a request header
+-c configuration
+		The configuration file to use (default ".gulp.yml")
+-follow-redirect
+		Enables following 3XX redirects (default)
+-insecure
+		Disable TLS certificate checking
+-m method
+		The method to use: ie. HEAD, GET, POST, PUT, DELETE (default "GET")
+-no-color
+		Disables color output for the request
+-no-redirect
+		Disables following 3XX redirects
+-repeat-concurrent connections
+		Number of concurrent connections to use (default 1)
+-repeat-times iteration
+		Number of iterations to submit the request (default 1)
+-ro
+		Only display the response body (default)
+-sco
+		Only display the response code
+-timeout seconds
+		The number of seconds to wait before the connection times out (default 300)
+-v    Display the response body along with various headers
+-version
+		Display the current client version
+```
 
 ## Configuration
 
@@ -121,13 +169,17 @@ Use the `-c` argument to load a different configuration file.
 
 ## POST Payload
 
-Since Gulp prefers JSON/YAML payloads _(Note: YAML is converted to JSON automatically)_, using either is easy. The command to post data: 
+Since GULP prefers JSON/YAML payloads _(Note: YAML is converted to JSON automatically)_, using either is easy. The command to post data: 
 
-```gulp -m POST https://api.ex.io/message < postData.yml```
+```
+gulp -m POST https://api.ex.io/message < postData.yml
+```
 
 To post a payload other than JSON/YAML, the command is slightly more complicated since a content-type must be passed. The command:
 
-```gulp -m POST -H "Content-Type: image/jpeg" https://api.ex.io/photo < me.jpg```
+```
+gulp -m POST -H "Content-Type: image/jpeg" https://api.ex.io/photo < me.jpg
+```
 
 ## Load Testing
 

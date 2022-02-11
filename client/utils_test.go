@@ -130,6 +130,6 @@ func TestGetVersionEnv(t *testing.T) {
 func TestCreateUserAgent(t *testing.T) {
 	assert := assert.New(t)
 
-	expected := fmt.Sprintf("thoom.Gulp/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
+	expected := fmt.Sprintf("thoom.GULP/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
 	assert.Equal(expected, CreateUserAgent())
 }

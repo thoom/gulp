@@ -38,9 +38,14 @@ func CreateRequest(method string, url string, body []byte, headers map[string]st
 
 // CreateClient will create a new http.Client with basic defaults
 func CreateClient(followRedirects bool, timeout int) *http.Client {
+	tr := &http.Transport{
+		DisableCompression: false,
+	}
+
 	if !followRedirects {
 		return &http.Client{
-			Timeout: time.Duration(timeout) * time.Second,
+			Timeout:   time.Duration(timeout) * time.Second,
+			Transport: tr,
 			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
@@ -48,6 +53,7 @@ func CreateClient(followRedirects bool, timeout int) *http.Client {
 	}
 
 	return &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
+		Timeout:   time.Duration(timeout) * time.Second,
+		Transport: tr,
 	}
 }

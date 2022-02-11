@@ -75,5 +75,5 @@ func GetVersion() string {
 }
 
 func CreateUserAgent() string {
-	return fmt.Sprintf("thoom.Gulp/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
+	return fmt.Sprintf("thoom.GULP/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
 }

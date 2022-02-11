@@ -37,7 +37,7 @@ var (
 	reqHeaders stringSlice
 
 	gulpConfig          = config.New
-	methodFlag          = flag.String("m", "GET", "The `method` to use: GET, POST, PUT, DELETE")
+	methodFlag          = flag.String("m", "GET", "The `method` to use: ie. HEAD, GET, POST, PUT, DELETE")
 	configFlag          = flag.String("c", ".gulp.yml", "The `configuration` file to use")
 	insecureFlag        = flag.Bool("insecure", false, "Disable TLS certificate checking")
 	responseOnlyFlag    = flag.Bool("ro", false, "Only display the response body (default)")
@@ -45,7 +45,7 @@ var (
 	verboseFlag         = flag.Bool("v", false, "Display the response body along with various headers")
 	timeoutFlag         = flag.String("timeout", "", "The number of `seconds` to wait before the connection times out "+fmt.Sprintf("(default %d)", config.DefaultTimeout))
 	noColorFlag         = flag.Bool("no-color", false, "Disables color output for the request")
-	followRedirectFlag  = flag.Bool("follow-redirect", false, "Enables following 3XX redirects")
+	followRedirectFlag  = flag.Bool("follow-redirect", false, "Enables following 3XX redirects (default)")
 	disableRedirectFlag = flag.Bool("no-redirect", false, "Disables following 3XX redirects")
 	repeatFlag          = flag.Int("repeat-times", 1, "Number of `iteration`s to submit the request")
 	concurrentFlag      = flag.Int("repeat-concurrent", 1, "Number of concurrent `connections` to use")
