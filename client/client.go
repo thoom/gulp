@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/thoom/gulp/config"
@@ -69,4 +70,18 @@ func CreateClient(followRedirects bool, timeout int, clientCert config.ClientAut
 		Timeout:   time.Duration(timeout) * time.Second,
 		Transport: tr,
 	}, nil
+}
+
+// Creates a ClientAuth object
+func BuildClientAuth(clientCert, clientCertKey string, clientCertConfig config.ClientAuth) config.ClientAuth {
+	clientAuth := clientCertConfig
+	if strings.TrimSpace(clientCert) != "" {
+		clientAuth.Cert = clientCert
+	}
+
+	if strings.TrimSpace(clientCertKey) != "" {
+		clientAuth.Key = clientCertKey
+	}
+
+	return clientAuth
 }

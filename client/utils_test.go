@@ -142,37 +142,3 @@ func TestBuildClientAgent(t *testing.T) {
 	assert.Equal("test.pem", res.Cert)
 	assert.Equal("test.key", res.Key)
 }
-
-func TestBuildClientAgentConfigOnly(t *testing.T) {
-	assert := assert.New(t)
-
-	def := config.New.ClientAuth
-	res := BuildClientAuth("  ", " ", def)
-	assert.Equal(def, res)
-}
-
-func TestBuildAgentCertFlag(t *testing.T) {
-	assert := assert.New(t)
-
-	def := config.ClientAuth{
-		Cert: "def.pem",
-		Key:  "defkey.pem",
-	}
-
-	res := BuildClientAuth("test1.pem", "", def)
-	assert.Equal("test1.pem", res.Cert)
-	assert.Equal("defkey.pem", res.Key)
-}
-
-func TestBuildAgentCertKeyFlag(t *testing.T) {
-	assert := assert.New(t)
-
-	def := config.ClientAuth{
-		Cert: "def.pem",
-		Key:  "defkey.pem",
-	}
-
-	res := BuildClientAuth("", "testkey.pem", def)
-	assert.Equal("def.pem", res.Cert)
-	assert.Equal("testkey.pem", res.Key)
-}
