@@ -146,7 +146,7 @@ func processRequest(url string, body []byte, headers map[string]string, iteratio
 	bo := &output.BuffOut{Out: b, Err: b}
 
 	startTimer = time.Now()
-	resp, err := client.CreateClient(followRedirect, calculateTimeout()).Do(req)
+	resp, err := client.CreateClient(followRedirect, calculateTimeout(), gulpConfig.ClientCert).Do(req)
 	if err != nil {
 		output.ExitErr("Something unexpected happened", err)
 	}

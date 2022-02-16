@@ -47,7 +47,7 @@ func TestShouldFollowRedirectsConfigDisabled(t *testing.T) {
 	assert := assert.New(t)
 	resetRedirectFlags()
 
-	gulpConfig.Flags.FollowRedirects = false
+	gulpConfig.Flags.FollowRedirects = "false"
 	assert.False(shouldFollowRedirects())
 }
 
@@ -56,7 +56,7 @@ func TestShouldFollowRedirectsConfigDisabledFlagEnable(t *testing.T) {
 	resetRedirectFlags()
 
 	*followRedirectFlag = true
-	gulpConfig.Flags.FollowRedirects = false
+	gulpConfig.Flags.FollowRedirects = "false"
 	assert.True(shouldFollowRedirects())
 }
 
@@ -295,7 +295,7 @@ func TestConvertJSONBodyInvalidJson(t *testing.T) {
 func TestDisableColorOutput(t *testing.T) {
 	assert := assert.New(t)
 
-	gulpConfig.Flags.UseColor = true
+	gulpConfig.Flags.UseColor = "true"
 	*noColorFlag = true
 	disableColorOutput()
 	assert.True(color.NoColor)
@@ -304,7 +304,7 @@ func TestDisableColorOutput(t *testing.T) {
 func TestDisableColorOutputConfig(t *testing.T) {
 	assert := assert.New(t)
 
-	gulpConfig.Flags.UseColor = false
+	gulpConfig.Flags.UseColor = "false"
 	*noColorFlag = false
 	disableColorOutput()
 	assert.True(color.NoColor)
@@ -319,7 +319,7 @@ func TestDisableTLSVerify(t *testing.T) {
 
 	*insecureFlag = true
 	*verboseFlag = true
-	gulpConfig.Flags.VerifyTLS = true
+	gulpConfig.Flags.VerifyTLS = "true"
 	disableTLSVerify()
 
 	assert.Equal("WARNING: TLS CHECKING IS DISABLED FOR THIS REQUEST\n", b.String())
@@ -334,7 +334,7 @@ func TestDisableTLSVerifyConfig(t *testing.T) {
 
 	*insecureFlag = false
 	*verboseFlag = true
-	gulpConfig.Flags.VerifyTLS = false
+	gulpConfig.Flags.VerifyTLS = "false"
 	disableTLSVerify()
 
 	assert.Equal("WARNING: TLS CHECKING IS DISABLED FOR THIS REQUEST\n", b.String())

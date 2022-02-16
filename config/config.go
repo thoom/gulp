@@ -26,10 +26,11 @@ type ClientCertAuth struct {
 }
 
 // ConfigFlags contains valid configuration flags
+// These are strings not bool bc otherwise we don't know if the config file is missing the flag or is set to false
 type ConfigFlags struct {
-	FollowRedirects bool `json:"follow_redirects"`
-	UseColor        bool `json:"use_color"`
-	VerifyTLS       bool `json:"verify_tls"`
+	FollowRedirects string `json:"follow_redirects"`
+	UseColor        string `json:"use_color"`
+	VerifyTLS       string `json:"verify_tls"`
 }
 
 // DefaultTimeout is 5 minutes (300 seconds)
@@ -40,9 +41,9 @@ var New *Config
 
 func newConfig() *Config {
 	flags := ConfigFlags{
-		FollowRedirects: true,
-		UseColor:        true,
-		VerifyTLS:       true,
+		FollowRedirects: "true",
+		UseColor:        "true",
+		VerifyTLS:       "true",
 	}
 
 	return &Config{Flags: flags}
@@ -50,21 +51,21 @@ func newConfig() *Config {
 
 // FollowRedirects determines whether or not to follow 301/302 redirects
 func (gc *Config) FollowRedirects() bool {
-	return gc.Flags.FollowRedirects
+	return gc.Flags.FollowRedirects != "false"
 }
 
 // UseColor adds a switch for whether or not to colorize the output
 func (gc *Config) UseColor() bool {
-	return gc.Flags.UseColor
+	return gc.Flags.UseColor != "false"
 }
 
 // VerifyTLS determines whether or not to verify that a TLS cert is valid
 func (gc *Config) VerifyTLS() bool {
-	return gc.Flags.VerifyTLS
+	return gc.Flags.VerifyTLS != "false"
 }
 
-func (gc *Config) UseClientCertAuth() bool {
-	return strings.TrimSpace(gc.ClientCert.Cert) != "" && strings.TrimSpace(gc.ClientCert.Key) != ""
+func (gc *ClientCertAuth) UseAuth() bool {
+	return strings.TrimSpace(gc.Cert) != "" && strings.TrimSpace(gc.Key) != ""
 }
 
 // GetTimeout Parses the config string and returns the default if the value wasn't passed

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thoom/gulp/config"
 )
 
 func TestDisableTLS(t *testing.T) {
@@ -83,12 +84,12 @@ func TestCreateRequestPostWithBody(t *testing.T) {
 func TestCreateClient(t *testing.T) {
 	assert := assert.New(t)
 
-	client := CreateClient(false, 10)
+	client := CreateClient(false, 10, config.New.ClientCert)
 	assert.Equal(time.Duration(10)*time.Second, client.Timeout)
 }
 
 func TestCreateClientFollowRedirects(t *testing.T) {
 	assert := assert.New(t)
-	client := CreateClient(true, 10)
+	client := CreateClient(true, 10, config.New.ClientCert)
 	assert.Equal(time.Duration(10)*time.Second, client.Timeout)
 }

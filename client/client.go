@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/thoom/gulp/config"
 )
 
 var buildVersion string
@@ -17,7 +19,7 @@ func DisableTLSVerification() {
 }
 
 // CreateRequest will create a request object
-func CreateRequest(method string, url string, body []byte, headers map[string]string) (*http.Request, error) {
+func CreateRequest(method, url string, body []byte, headers map[string]string) (*http.Request, error) {
 	var reader io.Reader
 
 	// Don't build the reader if using a GET/HEAD request
@@ -37,9 +39,16 @@ func CreateRequest(method string, url string, body []byte, headers map[string]st
 }
 
 // CreateClient will create a new http.Client with basic defaults
-func CreateClient(followRedirects bool, timeout int) *http.Client {
+func CreateClient(followRedirects bool, timeout int, clientCert config.ClientCertAuth) *http.Client {
 	tr := &http.Transport{
 		DisableCompression: false,
+	}
+
+	if clientCert.UseAuth() {
+		cert, _ := tls.LoadX509KeyPair(clientCert.Cert, clientCert.Key)
+		tr.TLSClientConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
+		}
 	}
 
 	if !followRedirects {

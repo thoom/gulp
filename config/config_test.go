@@ -16,7 +16,7 @@ func TestNewConfig(t *testing.T) {
 	assert.True(New.FollowRedirects())
 	assert.True(New.UseColor())
 	assert.True(New.VerifyTLS())
-	assert.False(New.UseClientCertAuth())
+	assert.False(New.ClientCert.UseAuth())
 	assert.Equal(DefaultTimeout, New.GetTimeout())
 }
 
@@ -58,6 +58,19 @@ func TestLoadConfigurationMissingTimeout(t *testing.T) {
 	assert.Equal(DefaultTimeout, config.GetTimeout())
 }
 
+func TestLoadConfigurationFlagsOK(t *testing.T) {
+	assert := assert.New(t)
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
+	defer testFile.Close()
+
+	ioutil.WriteFile(testFile.Name(), []byte("url: some_url"), 0644)
+	config, _ := LoadConfiguration(testFile.Name())
+	assert.Equal("some_url", config.URL)
+	assert.True(config.FollowRedirects())
+	assert.True(config.UseColor())
+	assert.True(config.VerifyTLS())
+}
+
 func TestLoadConfigurationFoundTimeout(t *testing.T) {
 	assert := assert.New(t)
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
@@ -95,9 +108,9 @@ client_cert_auth:
   key:  
   `), 0644)
 	config, _ := LoadConfiguration(testFile.Name())
-	assert.False(config.Flags.FollowRedirects)
-	assert.False(config.Flags.UseColor)
-	assert.False(config.Flags.VerifyTLS)
+	assert.Equal(config.Flags.FollowRedirects, "false")
+	assert.Equal(config.Flags.UseColor, "false")
+	assert.Equal(config.Flags.VerifyTLS, "false")
 	assert.Empty(config.ClientCert.Cert)
 	assert.Empty(config.ClientCert.Key)
 }
@@ -116,9 +129,9 @@ client_cert_auth:
   key: CLIENT_CERT_KEY
   `), 0644)
 	config, _ := LoadConfiguration(testFile.Name())
-	assert.True(config.Flags.FollowRedirects)
-	assert.True(config.Flags.UseColor)
-	assert.True(config.Flags.VerifyTLS)
+	assert.Equal(config.Flags.FollowRedirects, "true")
+	assert.Equal(config.Flags.UseColor, "true")
+	assert.Equal(config.Flags.VerifyTLS, "true")
 	assert.Equal("someFile.pem", config.ClientCert.Cert)
 	assert.Equal("CLIENT_CERT_KEY", config.ClientCert.Key)
 }
