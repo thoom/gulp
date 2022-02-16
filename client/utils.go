@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/thoom/gulp/config"
 )
 
 var defaultVersion string
@@ -76,4 +78,18 @@ func GetVersion() string {
 
 func CreateUserAgent() string {
 	return fmt.Sprintf("thoom.GULP/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
+}
+
+// Creates a ClientAuth object
+func BuildClientAuth(clientCert, clientCertKey string, clientCertConfig config.ClientAuth) config.ClientAuth {
+	clientAuth := clientCertConfig
+	if strings.TrimSpace(clientCert) != "" {
+		clientAuth.Cert = clientCert
+	}
+
+	if strings.TrimSpace(clientCertKey) != "" {
+		clientAuth.Key = clientCertKey
+	}
+
+	return clientAuth
 }

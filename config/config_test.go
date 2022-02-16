@@ -16,7 +16,7 @@ func TestNewConfig(t *testing.T) {
 	assert.True(New.FollowRedirects())
 	assert.True(New.UseColor())
 	assert.True(New.VerifyTLS())
-	assert.False(New.ClientCert.UseAuth())
+	assert.False(New.ClientAuth.UseAuth())
 	assert.Equal(DefaultTimeout, New.GetTimeout())
 }
 
@@ -111,8 +111,8 @@ client_cert_auth:
 	assert.Equal(config.Flags.FollowRedirects, "false")
 	assert.Equal(config.Flags.UseColor, "false")
 	assert.Equal(config.Flags.VerifyTLS, "false")
-	assert.Empty(config.ClientCert.Cert)
-	assert.Empty(config.ClientCert.Key)
+	assert.Empty(config.ClientAuth.Cert)
+	assert.Empty(config.ClientAuth.Key)
 }
 func TestLoadConfigurationLoadFlagsPositive(t *testing.T) {
 	assert := assert.New(t)
@@ -124,7 +124,7 @@ flags:
   follow_redirects: true
   use_color: true
   verify_tls: true
-client_cert_auth:
+client_auth:
   cert: someFile.pem
   key: CLIENT_CERT_KEY
   `), 0644)
@@ -132,6 +132,6 @@ client_cert_auth:
 	assert.Equal(config.Flags.FollowRedirects, "true")
 	assert.Equal(config.Flags.UseColor, "true")
 	assert.Equal(config.Flags.VerifyTLS, "true")
-	assert.Equal("someFile.pem", config.ClientCert.Cert)
-	assert.Equal("CLIENT_CERT_KEY", config.ClientCert.Key)
+	assert.Equal("someFile.pem", config.ClientAuth.Cert)
+	assert.Equal("CLIENT_CERT_KEY", config.ClientAuth.Key)
 }

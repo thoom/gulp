@@ -84,12 +84,26 @@ func TestCreateRequestPostWithBody(t *testing.T) {
 func TestCreateClient(t *testing.T) {
 	assert := assert.New(t)
 
-	client := CreateClient(false, 10, config.New.ClientCert)
+	client, err := CreateClient(false, 10, config.New.ClientAuth)
+	assert.Nil(err)
 	assert.Equal(time.Duration(10)*time.Second, client.Timeout)
 }
 
 func TestCreateClientFollowRedirects(t *testing.T) {
 	assert := assert.New(t)
-	client := CreateClient(true, 10, config.New.ClientCert)
+	client, err := CreateClient(true, 10, config.New.ClientAuth)
+	assert.Nil(err)
 	assert.Equal(time.Duration(10)*time.Second, client.Timeout)
+}
+
+func TestCreateClientClientCertAuthError(t *testing.T) {
+	assert := assert.New(t)
+
+	clientAuth := config.ClientAuth{
+		Cert: "test.pem",
+		Key:  "test.key",
+	}
+
+	_, err := CreateClient(true, 10, clientAuth)
+	assert.NotNil(err)
 }

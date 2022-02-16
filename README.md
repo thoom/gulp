@@ -1,6 +1,6 @@
-# GULP ![Builds](https://github.com/thoom/gulp/actions/workflows/test.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=coverage)](https://sonarcloud.io/summary/overall?id=gulp) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=security_rating)](https://sonarcloud.io/summary/overall?id=gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
+# GULP ![Builds](https://github.com/thoom/gulp/actions/workflows/main.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=coverage)](https://sonarcloud.io/summary/overall?id=gulp) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=security_rating)](https://sonarcloud.io/summary/overall?id=gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
  
-GULP is a silly acronym for **G**et **U**r**L** **P**ayload. It is an HTTP CLI client written in Go. It's primarily meant to work with modern REST APIs, so by default it expects either JSON or YAML payloads. YAML is effortlessly converted to JSON when used as a payload.
+GULP is a silly acronym for **G**et **U**r**L** **P**ayload. It is an HTTP REST client written in Go. Since it's primarily meant to work with modern REST APIs, by default it expects either JSON or YAML payloads. YAML is effortlessly converted to JSON when used as a payload.
 
 Some advantages to using YAML instead of JSON include being able to have comments and not requiring superfluous usage of curly braces and quotation marks.
 
@@ -93,12 +93,12 @@ gulp -v /users/foo
 This exposes how the client builds the final URL from 2 parts: the _config.URL_ and the _Path_.
 
 The cli format is technically in the format `gulp [FLAGS] [PATH]`. If a configuration file exists,
-and it has the `url` (_config.URL_) field defined (as seen above), then it will take the _[PATH]_ from the 
+and it has the `url` (_config.URL_) field defined (as shown above), then it will take the _[PATH]_ from the 
 cli and concatinate it with the _config.URL_. This was seen in the previous example.
 
 If the _[PATH]_ starts with `http`, then the client will ignore the _config.URL_.
 
-If the _[PATH]_ is empty, then the client will just use the _config.URL_.
+If the _[PATH]_ is empty, then the client will just use the _config.URL_ if it exists.
 
 If both are empty, then an error is returned.
 
@@ -161,7 +161,7 @@ Use the `-c` argument to load a different configuration file.
 * __timeout__: How long to wait for a response from the remote server.
 	Defaults to 300 seconds. Can be overridden by the `-timeout` cli argument.
 
-* __client_cert_auth__: The file and key to use with client cert requests.
+* __client_auth__: The file and key to use with client cert requests.
   * __cert__: The PEM-encoded file to use as cert
   * __key__:  The PEM-encoded file to use as private key
 

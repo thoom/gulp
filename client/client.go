@@ -39,13 +39,17 @@ func CreateRequest(method, url string, body []byte, headers map[string]string) (
 }
 
 // CreateClient will create a new http.Client with basic defaults
-func CreateClient(followRedirects bool, timeout int, clientCert config.ClientCertAuth) *http.Client {
+func CreateClient(followRedirects bool, timeout int, clientCert config.ClientAuth) (*http.Client, error) {
 	tr := &http.Transport{
 		DisableCompression: false,
 	}
 
 	if clientCert.UseAuth() {
-		cert, _ := tls.LoadX509KeyPair(clientCert.Cert, clientCert.Key)
+		cert, err := tls.LoadX509KeyPair(clientCert.Cert, clientCert.Key)
+		if err != nil {
+			return nil, fmt.Errorf("invalid client cert/key: %s", err)
+		}
+
 		tr.TLSClientConfig = &tls.Config{
 			Certificates: []tls.Certificate{cert},
 		}
@@ -58,11 +62,11 @@ func CreateClient(followRedirects bool, timeout int, clientCert config.ClientCer
 			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
-		}
+		}, nil
 	}
 
 	return &http.Client{
 		Timeout:   time.Duration(timeout) * time.Second,
 		Transport: tr,
-	}
+	}, nil
 }

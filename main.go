@@ -36,11 +36,11 @@ func (s *stringSlice) Set(value string) error {
 var (
 	reqHeaders stringSlice
 
-	gulpConfig = config.New
-	methodFlag = flag.String("m", "GET", "The `method` to use: ie. HEAD, GET, POST, PUT, DELETE")
-	configFlag = flag.String("c", ".gulp.yml", "The `configuration` file to use")
-	// clientCert          = flag.String("client-cert", "", "If using client cert auth, the cert to use. MUST be paired with -client-cert-key flag")
-	// clientCertKey       = flag.String("client-cert-key", "", "If using client cert auth, the key to use. MUST be paired with -client-cert flag")
+	gulpConfig          = config.New
+	methodFlag          = flag.String("m", "GET", "The `method` to use: ie. HEAD, GET, POST, PUT, DELETE")
+	configFlag          = flag.String("c", ".gulp.yml", "The `configuration` file to use")
+	clientCert          = flag.String("client-cert", "", "If using client cert auth, the cert to use. MUST be paired with -client-cert-key flag")
+	clientCertKey       = flag.String("client-cert-key", "", "If using client cert auth, the key to use. MUST be paired with -client-cert flag")
 	insecureFlag        = flag.Bool("insecure", false, "Disable TLS certificate checking")
 	responseOnlyFlag    = flag.Bool("ro", false, "Only display the response body (default)")
 	statusCodeOnlyFlag  = flag.Bool("sco", false, "Only display the response code")
@@ -146,7 +146,12 @@ func processRequest(url string, body []byte, headers map[string]string, iteratio
 	bo := &output.BuffOut{Out: b, Err: b}
 
 	startTimer = time.Now()
-	resp, err := client.CreateClient(followRedirect, calculateTimeout(), gulpConfig.ClientCert).Do(req)
+	reqClient, err := client.CreateClient(followRedirect, calculateTimeout(), client.BuildClientAuth(*clientCert, *clientCertKey, gulpConfig.ClientAuth))
+	if err != nil {
+		output.ExitErr("Could not create client: ", err)
+	}
+
+	resp, err := reqClient.Do(req)
 	if err != nil {
 		output.ExitErr("Something unexpected happened", err)
 	}

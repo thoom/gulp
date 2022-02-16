@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thoom/gulp/config"
 )
 
 func TestBuildHeadersBase(t *testing.T) {
@@ -132,4 +133,46 @@ func TestCreateUserAgent(t *testing.T) {
 
 	expected := fmt.Sprintf("thoom.GULP/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
 	assert.Equal(expected, CreateUserAgent())
+}
+
+func TestBuildClientAgent(t *testing.T) {
+	assert := assert.New(t)
+
+	res := BuildClientAuth("test.pem", "test.key", config.New.ClientAuth)
+	assert.Equal("test.pem", res.Cert)
+	assert.Equal("test.key", res.Key)
+}
+
+func TestBuildClientAgentConfigOnly(t *testing.T) {
+	assert := assert.New(t)
+
+	def := config.New.ClientAuth
+	res := BuildClientAuth("  ", " ", def)
+	assert.Equal(def, res)
+}
+
+func TestBuildAgentCertFlag(t *testing.T) {
+	assert := assert.New(t)
+
+	def := config.ClientAuth{
+		Cert: "def.pem",
+		Key:  "defkey.pem",
+	}
+
+	res := BuildClientAuth("test1.pem", "", def)
+	assert.Equal("test1.pem", res.Cert)
+	assert.Equal("defkey.pem", res.Key)
+}
+
+func TestBuildAgentCertKeyFlag(t *testing.T) {
+	assert := assert.New(t)
+
+	def := config.ClientAuth{
+		Cert: "def.pem",
+		Key:  "defkey.pem",
+	}
+
+	res := BuildClientAuth("", "testkey.pem", def)
+	assert.Equal("def.pem", res.Cert)
+	assert.Equal("testkey.pem", res.Key)
 }

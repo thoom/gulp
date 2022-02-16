@@ -15,12 +15,12 @@ type Config struct {
 	Headers    map[string]string `json:"headers"`
 	Display    string            `json:"display"`
 	Timeout    string            `json:"timeout"`
-	ClientCert ClientCertAuth    `json:"client_cert_auth"`
+	ClientAuth ClientAuth        `json:"client_auth"`
 	Flags      ConfigFlags       `json:"flags"`
 }
 
-// ClientCertAuth leads to files with PEM-encoded data tied to client cert authentication
-type ClientCertAuth struct {
+// ClientAuth leads to files with PEM-encoded data tied to client cert authentication
+type ClientAuth struct {
 	Cert string `json:"cert"`
 	Key  string `json:"key"`
 }
@@ -64,7 +64,7 @@ func (gc *Config) VerifyTLS() bool {
 	return gc.Flags.VerifyTLS != "false"
 }
 
-func (gc *ClientCertAuth) UseAuth() bool {
+func (gc *ClientAuth) UseAuth() bool {
 	return strings.TrimSpace(gc.Cert) != "" && strings.TrimSpace(gc.Key) != ""
 }
 
@@ -106,13 +106,13 @@ func LoadConfiguration(fileName string) (*Config, error) {
 	}
 
 	// Clean up spaced padding
-	if gulpConfig.ClientCert.Cert != "" {
-		gulpConfig.ClientCert.Cert = strings.TrimSpace(gulpConfig.ClientCert.Cert)
+	if gulpConfig.ClientAuth.Cert != "" {
+		gulpConfig.ClientAuth.Cert = strings.TrimSpace(gulpConfig.ClientAuth.Cert)
 	}
 
 	// Clean up spaced padding
-	if gulpConfig.ClientCert.Key != "" {
-		gulpConfig.ClientCert.Key = strings.TrimSpace(gulpConfig.ClientCert.Key)
+	if gulpConfig.ClientAuth.Key != "" {
+		gulpConfig.ClientAuth.Key = strings.TrimSpace(gulpConfig.ClientAuth.Key)
 	}
 
 	return gulpConfig, nil
