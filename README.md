@@ -109,6 +109,10 @@ If both are empty, then an error is returned.
 		Set a request header
 -c configuration
 		The configuration file to use (default ".gulp.yml")
+-client-cert string
+		If using client cert auth, the cert to use. MUST be paired with -client-cert-key flag
+-client-cert-key string
+		If using client cert auth, the key to use. MUST be paired with -client-cert flag
 -follow-redirect
 		Enables following 3XX redirects (default)
 -insecure
@@ -156,6 +160,10 @@ Use the `-c` argument to load a different configuration file.
 
 * __timeout__: How long to wait for a response from the remote server.
 	Defaults to 300 seconds. Can be overridden by the `-timeout` cli argument.
+
+* __client_cert_auth__: The file and key to use with client cert requests.
+  * __cert__: The PEM-encoded file to use as cert
+  * __key__:  The PEM-encoded file to use as private key
 
 * __flags__: Options that are enabled by default and can be disabled:
   * __follow_redirects__: Follow `3XX` HTTP redirects. 

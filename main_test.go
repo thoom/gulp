@@ -47,7 +47,7 @@ func TestShouldFollowRedirectsConfigDisabled(t *testing.T) {
 	assert := assert.New(t)
 	resetRedirectFlags()
 
-	gulpConfig.Flags["follow_redirects"] = "false"
+	gulpConfig.Flags.FollowRedirects = false
 	assert.False(shouldFollowRedirects())
 }
 
@@ -56,7 +56,7 @@ func TestShouldFollowRedirectsConfigDisabledFlagEnable(t *testing.T) {
 	resetRedirectFlags()
 
 	*followRedirectFlag = true
-	gulpConfig.Flags["follow_redirects"] = "false"
+	gulpConfig.Flags.FollowRedirects = false
 	assert.True(shouldFollowRedirects())
 }
 
@@ -253,7 +253,7 @@ func TestGetPostBodyEmpty(t *testing.T) {
 func TestGetPostBody(t *testing.T) {
 	assert := assert.New(t)
 
-	testFile, _ := ioutil.TempFile(os.TempDir(), "test_post_body")
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_post_body")
 	ioutil.WriteFile(testFile.Name(), []byte("salutation: hello world\nvalediction: goodbye world"), 0644)
 
 	f, _ := os.Open(testFile.Name())
@@ -295,7 +295,7 @@ func TestConvertJSONBodyInvalidJson(t *testing.T) {
 func TestDisableColorOutput(t *testing.T) {
 	assert := assert.New(t)
 
-	gulpConfig.Flags["use_color"] = "true"
+	gulpConfig.Flags.UseColor = true
 	*noColorFlag = true
 	disableColorOutput()
 	assert.True(color.NoColor)
@@ -304,7 +304,7 @@ func TestDisableColorOutput(t *testing.T) {
 func TestDisableColorOutputConfig(t *testing.T) {
 	assert := assert.New(t)
 
-	gulpConfig.Flags["use_color"] = "false"
+	gulpConfig.Flags.UseColor = false
 	*noColorFlag = false
 	disableColorOutput()
 	assert.True(color.NoColor)
@@ -319,7 +319,7 @@ func TestDisableTLSVerify(t *testing.T) {
 
 	*insecureFlag = true
 	*verboseFlag = true
-	gulpConfig.Flags["verify_tls"] = "true"
+	gulpConfig.Flags.VerifyTLS = true
 	disableTLSVerify()
 
 	assert.Equal("WARNING: TLS CHECKING IS DISABLED FOR THIS REQUEST\n", b.String())
@@ -334,7 +334,7 @@ func TestDisableTLSVerifyConfig(t *testing.T) {
 
 	*insecureFlag = false
 	*verboseFlag = true
-	gulpConfig.Flags["verify_tls"] = "false"
+	gulpConfig.Flags.VerifyTLS = false
 	disableTLSVerify()
 
 	assert.Equal("WARNING: TLS CHECKING IS DISABLED FOR THIS REQUEST\n", b.String())
@@ -347,7 +347,7 @@ func TestPrintRequestNotVerboseRepeat1(t *testing.T) {
 	bo := &output.BuffOut{Out: b, Err: b}
 
 	*verboseFlag = false
-	printRequest(0, "http://test.fake", map[string]string{}, bo)
+	printRequest(0, "http://test.fake", map[string][]string{}, 0, "", bo)
 	assert.Equal("", b.String())
 }
 
@@ -358,7 +358,7 @@ func TestPrintRequestNotVerboseRepeat7(t *testing.T) {
 	bo := &output.BuffOut{Out: b, Err: b}
 
 	*verboseFlag = false
-	printRequest(7, "http://test.fake", map[string]string{}, bo)
+	printRequest(7, "http://test.fake", map[string][]string{}, 0, "", bo)
 	assert.Equal("7: ", b.String())
 }
 
@@ -369,7 +369,7 @@ func TestPrintRequestVerboseRepeat0(t *testing.T) {
 	bo := &output.BuffOut{Out: b, Err: b}
 
 	*verboseFlag = true
-	printRequest(0, "http://test.fake", map[string]string{}, bo)
+	printRequest(0, "http://test.fake", map[string][]string{}, 0, "", bo)
 	assert.Equal("\nGET http://test.fake\n\n", b.String())
 }
 
@@ -380,7 +380,7 @@ func TestPrintRequestVerboseRepeat7(t *testing.T) {
 	bo := &output.BuffOut{Out: b, Err: b}
 
 	*verboseFlag = true
-	printRequest(7, "http://test.fake", map[string]string{}, bo)
+	printRequest(7, "http://test.fake", map[string][]string{}, 0, "", bo)
 	assert.Equal("\nIteration #7\n\n\nGET http://test.fake\n\n", b.String())
 }
 
@@ -391,11 +391,11 @@ func TestPrintRequestVerboseRepeat0Headers(t *testing.T) {
 	bo := &output.BuffOut{Out: b, Err: b}
 	*verboseFlag = true
 
-	headers := map[string]string{}
-	headers["X-TEST"] = "abc123def"
+	headers := map[string][]string{}
+	headers["X-TEST"] = []string{"abc123def"}
 
-	printRequest(0, "http://test.fake", headers, bo)
-	assert.Equal("\nGET http://test.fake \n\nX-TEST: abc123def    \n\n", b.String())
+	printRequest(0, "http://test.fake", headers, 9, "HTTP 1.1", bo)
+	assert.Equal("\nGET http://test.fake  \n\nPROTOCOL: HTTP 1.1    \nACCEPT-ENCODING: gzip \nCONTENT-LENGTH: 9     \nX-TEST: abc123def     \n\n", b.String())
 }
 
 func TestCalculateTimeout(t *testing.T) {

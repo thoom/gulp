@@ -16,6 +16,7 @@ func TestNewConfig(t *testing.T) {
 	assert.True(New.FollowRedirects())
 	assert.True(New.UseColor())
 	assert.True(New.VerifyTLS())
+	assert.False(New.UseClientCertAuth())
 	assert.Equal(DefaultTimeout, New.GetTimeout())
 }
 
@@ -37,7 +38,7 @@ func TestLoadConfigurationMissing(t *testing.T) {
 
 func TestLoadConfigurationNoParse(t *testing.T) {
 	assert := assert.New(t)
-	testFile, _ := ioutil.TempFile(os.TempDir(), "test_file_prefix")
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
 	ioutil.WriteFile(testFile.Name(), []byte{255, 253}, 0644)
@@ -48,7 +49,7 @@ func TestLoadConfigurationNoParse(t *testing.T) {
 
 func TestLoadConfigurationMissingTimeout(t *testing.T) {
 	assert := assert.New(t)
-	testFile, _ := ioutil.TempFile(os.TempDir(), "test_file_prefix")
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
 	ioutil.WriteFile(testFile.Name(), []byte("url: some_url"), 0644)
@@ -59,7 +60,7 @@ func TestLoadConfigurationMissingTimeout(t *testing.T) {
 
 func TestLoadConfigurationFoundTimeout(t *testing.T) {
 	assert := assert.New(t)
-	testFile, _ := ioutil.TempFile(os.TempDir(), "test_file_prefix")
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
 	ioutil.WriteFile(testFile.Name(), []byte("url: some_url\ntimeout: 100"), 0644)
@@ -70,11 +71,54 @@ func TestLoadConfigurationFoundTimeout(t *testing.T) {
 
 func TestLoadConfigurationInvalidTimeout(t *testing.T) {
 	assert := assert.New(t)
-	testFile, _ := ioutil.TempFile(os.TempDir(), "test_file_prefix")
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
 	ioutil.WriteFile(testFile.Name(), []byte("url: some_url\ntimeout: abc"), 0644)
 	config, _ := LoadConfiguration(testFile.Name())
 	assert.Equal("some_url", config.URL)
 	assert.Equal(DefaultTimeout, config.GetTimeout())
+}
+
+func TestLoadConfigurationLoadFlagsNegative(t *testing.T) {
+	assert := assert.New(t)
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
+	defer testFile.Close()
+
+	ioutil.WriteFile(testFile.Name(), []byte(`
+flags:
+  follow_redirects: false
+  use_color: false
+  verify_tls: false
+client_cert_auth:
+  cert:     
+  key:  
+  `), 0644)
+	config, _ := LoadConfiguration(testFile.Name())
+	assert.False(config.Flags.FollowRedirects)
+	assert.False(config.Flags.UseColor)
+	assert.False(config.Flags.VerifyTLS)
+	assert.Empty(config.ClientCert.Cert)
+	assert.Empty(config.ClientCert.Key)
+}
+func TestLoadConfigurationLoadFlagsPositive(t *testing.T) {
+	assert := assert.New(t)
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
+	defer testFile.Close()
+
+	ioutil.WriteFile(testFile.Name(), []byte(`
+flags:
+  follow_redirects: true
+  use_color: true
+  verify_tls: true
+client_cert_auth:
+  cert: someFile.pem
+  key: CLIENT_CERT_KEY
+  `), 0644)
+	config, _ := LoadConfiguration(testFile.Name())
+	assert.True(config.Flags.FollowRedirects)
+	assert.True(config.Flags.UseColor)
+	assert.True(config.Flags.VerifyTLS)
+	assert.Equal("someFile.pem", config.ClientCert.Cert)
+	assert.Equal("CLIENT_CERT_KEY", config.ClientCert.Key)
 }

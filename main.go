@@ -36,9 +36,11 @@ func (s *stringSlice) Set(value string) error {
 var (
 	reqHeaders stringSlice
 
-	gulpConfig          = config.New
-	methodFlag          = flag.String("m", "GET", "The `method` to use: ie. HEAD, GET, POST, PUT, DELETE")
-	configFlag          = flag.String("c", ".gulp.yml", "The `configuration` file to use")
+	gulpConfig = config.New
+	methodFlag = flag.String("m", "GET", "The `method` to use: ie. HEAD, GET, POST, PUT, DELETE")
+	configFlag = flag.String("c", ".gulp.yml", "The `configuration` file to use")
+	// clientCert          = flag.String("client-cert", "", "If using client cert auth, the cert to use. MUST be paired with -client-cert-key flag")
+	// clientCertKey       = flag.String("client-cert-key", "", "If using client cert auth, the key to use. MUST be paired with -client-cert flag")
 	insecureFlag        = flag.Bool("insecure", false, "Disable TLS certificate checking")
 	responseOnlyFlag    = flag.Bool("ro", false, "Only display the response body (default)")
 	statusCodeOnlyFlag  = flag.Bool("sco", false, "Only display the response code")
@@ -143,21 +145,18 @@ func processRequest(url string, body []byte, headers map[string]string, iteratio
 	defer fmt.Print(b)
 	bo := &output.BuffOut{Out: b, Err: b}
 
-	// If we got a request, output what was created
-	if req != nil {
-		printRequest(iteration, url, headers, bo)
-	}
-
 	startTimer = time.Now()
 	resp, err := client.CreateClient(followRedirect, calculateTimeout()).Do(req)
 	if err != nil {
 		output.ExitErr("Something unexpected happened", err)
 	}
 
+	// If we got a request, output what was created
+	printRequest(iteration, url, resp.Request.Header, req.ContentLength, req.Proto, bo)
 	handleResponse(resp, time.Since(startTimer).Seconds(), bo)
 }
 
-func printRequest(iteration int, url string, headers map[string]string, bo *output.BuffOut) {
+func printRequest(iteration int, url string, headers map[string][]string, contentLength int64, protocol string, bo *output.BuffOut) {
 	if !*verboseFlag {
 		if iteration > 0 {
 			fmt.Fprintf(bo.Out, "%d: ", iteration)
@@ -175,7 +174,13 @@ func printRequest(iteration int, url string, headers map[string]string, bo *outp
 		return
 	}
 
+	//Gross hacks bc I can't figure out how to pull these headers automatically
+	headers["Content-Length"] = []string{strconv.FormatInt(contentLength, 10)}
+	headers["Accept-Encoding"] = []string{"gzip"}
+
 	block := []string{urlHeader}
+	block = append(block, "PROTOCOL: "+protocol)
+
 	mk := make([]string, len(headers))
 	i := 0
 	for k := range headers {
@@ -185,7 +190,9 @@ func printRequest(iteration int, url string, headers map[string]string, bo *outp
 	sort.Strings(mk)
 
 	for _, k := range mk {
-		block = append(block, strings.ToUpper(k)+": "+headers[k])
+		for _, kk := range headers[k] {
+			block = append(block, strings.ToUpper(k)+": "+kk)
+		}
 	}
 	bo.PrintBlock(strings.Join(block, "\n"))
 	fmt.Fprintln(bo.Out)

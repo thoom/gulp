@@ -4,17 +4,32 @@ import (
 	"fmt"
 	"io/ioutil"
 	"strconv"
+	"strings"
 
 	"github.com/ghodss/yaml"
 )
 
 // Config contains configuration data
 type Config struct {
-	URL     string            `json:"url"`
-	Headers map[string]string `json:"headers"`
-	Display string            `json:"display"`
-	Timeout string            `json:"timeout"`
-	Flags   map[string]string `json:"flags"`
+	URL        string            `json:"url"`
+	Headers    map[string]string `json:"headers"`
+	Display    string            `json:"display"`
+	Timeout    string            `json:"timeout"`
+	ClientCert ClientCertAuth    `json:"client_cert_auth"`
+	Flags      ConfigFlags       `json:"flags"`
+}
+
+// ClientCertAuth leads to files with PEM-encoded data tied to client cert authentication
+type ClientCertAuth struct {
+	Cert string `json:"cert"`
+	Key  string `json:"key"`
+}
+
+// ConfigFlags contains valid configuration flags
+type ConfigFlags struct {
+	FollowRedirects bool `json:"follow_redirects"`
+	UseColor        bool `json:"use_color"`
+	VerifyTLS       bool `json:"verify_tls"`
 }
 
 // DefaultTimeout is 5 minutes (300 seconds)
@@ -24,27 +39,32 @@ const DefaultTimeout = 300
 var New *Config
 
 func newConfig() *Config {
-	flags := make(map[string]string)
-	flags["follow_redirects"] = "true"
-	flags["use_color"] = "true"
-	flags["verify_tls"] = "true"
+	flags := ConfigFlags{
+		FollowRedirects: true,
+		UseColor:        true,
+		VerifyTLS:       true,
+	}
 
 	return &Config{Flags: flags}
 }
 
 // FollowRedirects determines whether or not to follow 301/302 redirects
 func (gc *Config) FollowRedirects() bool {
-	return gc.Flags["follow_redirects"] != "false"
+	return gc.Flags.FollowRedirects
 }
 
 // UseColor adds a switch for whether or not to colorize the output
 func (gc *Config) UseColor() bool {
-	return gc.Flags["use_color"] != "false"
+	return gc.Flags.UseColor
 }
 
 // VerifyTLS determines whether or not to verify that a TLS cert is valid
 func (gc *Config) VerifyTLS() bool {
-	return gc.Flags["verify_tls"] != "false"
+	return gc.Flags.VerifyTLS
+}
+
+func (gc *Config) UseClientCertAuth() bool {
+	return strings.TrimSpace(gc.ClientCert.Cert) != "" && strings.TrimSpace(gc.ClientCert.Key) != ""
 }
 
 // GetTimeout Parses the config string and returns the default if the value wasn't passed
@@ -82,6 +102,16 @@ func LoadConfiguration(fileName string) (*Config, error) {
 	var gulpConfig *Config
 	if yaml.Unmarshal(dat, &gulpConfig) != nil {
 		return nil, fmt.Errorf("could not parse configuration")
+	}
+
+	// Clean up spaced padding
+	if gulpConfig.ClientCert.Cert != "" {
+		gulpConfig.ClientCert.Cert = strings.TrimSpace(gulpConfig.ClientCert.Cert)
+	}
+
+	// Clean up spaced padding
+	if gulpConfig.ClientCert.Key != "" {
+		gulpConfig.ClientCert.Key = strings.TrimSpace(gulpConfig.ClientCert.Key)
 	}
 
 	return gulpConfig, nil
