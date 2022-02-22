@@ -1,6 +1,6 @@
 # GULP ![Builds](https://github.com/thoom/gulp/actions/workflows/main.yml/badge.svg) [![Go Report Card](https://goreportcard.com/badge/github.com/thoom/gulp)](https://goreportcard.com/report/github.com/thoom/gulp) [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=coverage)](https://sonarcloud.io/summary/overall?id=gulp) [![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=gulp&metric=security_rating)](https://sonarcloud.io/summary/overall?id=gulp) [![GoDoc](https://godoc.org/github.com/thoom/gulp?status.svg)](https://godoc.org/github.com/thoom/gulp)
  
-GULP is a silly acronym for **G**et **U**r**L** **P**ayload. It is an HTTP REST client written in Go. Since it's primarily meant to work with modern REST APIs, by default it expects either JSON or YAML payloads. YAML is effortlessly converted to JSON when used as a payload.
+GULP is a silly acronym for **G**et **U**r**L** **P**ayload. It is an HTTP REST client written in Go. Since it's primarily meant to work with modern REST APIs, by default it expects to work with JSON payloads. For convenience, YAML is also supported and is effortlessly converted to JSON when used as a payload.
 
 Some advantages to using YAML instead of JSON include being able to have comments and not requiring superfluous usage of curly braces and quotation marks.
 
@@ -217,6 +217,26 @@ There are 2 command line flags that can be used as a poor-man's load testing/thr
 
  For example, if you ran `gulp -repeat-times 100 -repeat-concurrent 10 /some/api`, 
  the CLI would make 100 total requests with a concurrency of 10 calls at a time (so it would average about 10 calls per thread).
+
+ ## Client Cert Authentication
+
+Some APIs use client cert authentication as part of the request. If you need to use client cert authentication, there are two required
+flags (or equivalent config file options).
+
+* __-client-cert__: This is the location of the PEM-encoded certificate file
+* __-client-cert-key__: This is the location of the private key file used to create the certificate
+
+So if you had the files in `/etc/certs/client-cert.pem` and `/etc/certs/client-cert-key.pem` respectively, your request would be:
+
+```
+gulp -client-cert "/etc/certs/client-cert.pem" -client-cert-key "/etc/certs/client-cert-key.pem" https://api.ex.io/some-resource
+```
+
+_Note: GULP must have read access to the files in order to pass them to the HTTP client. This may mean mapping their location in Docker:_ 
+
+```
+docker run --rm -it -v $PWD:/gulp -v /etc/certs:/certs ghcr.io/thoom/gulp -client-cert "/certs/client-cert.pem" -client-cert-key "/certs/client-cert-key.pem" https://api.ex.io/some-resource
+```
  
  ## Library Dependencies
 
