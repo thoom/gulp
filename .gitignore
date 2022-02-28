@@ -14,4 +14,5 @@
 .glide/
 
 .gulp.yml
+*_test.*
 gulp

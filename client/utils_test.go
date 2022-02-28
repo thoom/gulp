@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/thoom/gulp/config"
 )
 
 func TestBuildHeadersBase(t *testing.T) {
@@ -130,6 +131,14 @@ func TestGetVersionEnv(t *testing.T) {
 func TestCreateUserAgent(t *testing.T) {
 	assert := assert.New(t)
 
-	expected := fmt.Sprintf("thoom.Gulp/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
+	expected := fmt.Sprintf("thoom.GULP/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
 	assert.Equal(expected, CreateUserAgent())
+}
+
+func TestBuildClientAgent(t *testing.T) {
+	assert := assert.New(t)
+
+	res := BuildClientAuth("test.pem", "test.key", config.New.ClientAuth)
+	assert.Equal("test.pem", res.Cert)
+	assert.Equal("test.key", res.Key)
 }

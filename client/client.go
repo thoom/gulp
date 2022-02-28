@@ -6,7 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/thoom/gulp/config"
 )
 
 var buildVersion string
@@ -17,10 +20,10 @@ func DisableTLSVerification() {
 }
 
 // CreateRequest will create a request object
-func CreateRequest(method string, url string, body []byte, headers map[string]string) (*http.Request, error) {
+func CreateRequest(method, url string, body []byte, headers map[string]string) (*http.Request, error) {
 	var reader io.Reader
 
-	// Don't build the read if using a GET/HEAD request
+	// Don't build the reader if using a GET/HEAD request
 	if method != "GET" && method != "HEAD" && body != nil {
 		reader = bytes.NewReader(body)
 	}
@@ -37,17 +40,48 @@ func CreateRequest(method string, url string, body []byte, headers map[string]st
 }
 
 // CreateClient will create a new http.Client with basic defaults
-func CreateClient(followRedirects bool, timeout int) *http.Client {
-	if !followRedirects {
-		return &http.Client{
-			Timeout: time.Duration(timeout) * time.Second,
-			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
+func CreateClient(followRedirects bool, timeout int, clientCert config.ClientAuth) (*http.Client, error) {
+	tr := &http.Transport{
+		DisableCompression: false,
+	}
+
+	if clientCert.UseAuth() {
+		cert, err := tls.LoadX509KeyPair(clientCert.Cert, clientCert.Key)
+		if err != nil {
+			return nil, fmt.Errorf("invalid client cert/key: %s", err)
+		}
+
+		tr.TLSClientConfig = &tls.Config{
+			Certificates: []tls.Certificate{cert},
 		}
 	}
 
-	return &http.Client{
-		Timeout: time.Duration(timeout) * time.Second,
+	if !followRedirects {
+		return &http.Client{
+			Timeout:   time.Duration(timeout) * time.Second,
+			Transport: tr,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}, nil
 	}
+
+	return &http.Client{
+		Timeout:   time.Duration(timeout) * time.Second,
+		Transport: tr,
+	}, nil
+}
+
+// Creates a ClientAuth object
+func BuildClientAuth(clientCert, clientCertKey string, clientCertConfig config.ClientAuth) config.ClientAuth {
+	clientAuth := clientCertConfig
+	if strings.TrimSpace(clientCert) != "" {
+		clientAuth.Cert = clientCert
+	}
+
+	if strings.TrimSpace(clientCertKey) != "" {
+		clientAuth.Key = clientCertKey
+	}
+
+	return clientAuth
 }
