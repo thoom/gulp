@@ -1,4 +1,4 @@
-FROM golang:1.17-alpine as build
+FROM golang:1.21-alpine as build
 
 ARG BUILD_VERSION=snapshot
 COPY . /thoom/gulp
@@ -10,7 +10,7 @@ RUN CGO_ENABLED=0 go build -ldflags "-X github.com/thoom/gulp/client.buildVersio
 RUN touch /tmp/hosts
 
 FROM scratch
-LABEL author="Zach Peacock <zdp@thoomtech.com>"
+LABEL author="Zach Peacock <zach@thoom.net>"
 LABEL org.opencontainers.image.source="https://github.com/thoom/gulp"
 
 COPY --from=build /thoom/gulp/gulp /bin/

@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"sort"
@@ -51,6 +51,7 @@ var (
 	disableRedirectFlag = flag.Bool("no-redirect", false, "Disables following 3XX redirects")
 	repeatFlag          = flag.Int("repeat-times", 1, "Number of `iteration`s to submit the request")
 	concurrentFlag      = flag.Int("repeat-concurrent", 1, "Number of concurrent `connections` to use")
+	urlFlag             = flag.String("url", "", "The `URL` to use for the request. Alternative to requiring a URL at the end of the command")
 	versionFlag         = flag.Bool("version", false, "Display the current client version")
 )
 
@@ -78,12 +79,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	path := ""
-	if len(flag.Args()) > 0 {
-		path = flag.Args()[0]
-	}
-
-	url, err := client.BuildURL(path, gulpConfig.URL)
+	url, err := client.BuildURL(getPath(*urlFlag, flag.Args()), gulpConfig.URL)
 	if err != nil {
 		output.ExitErr("", err)
 	}
@@ -131,6 +127,15 @@ func main() {
 		}(i, maxChan, &wg)
 	}
 	wg.Wait()
+}
+
+func getPath(urlFlag string, args []string) string {
+	path := urlFlag
+	if len(args) > 0 {
+		path = args[0]
+	}
+
+	return path
 }
 
 func processRequest(url string, body []byte, headers map[string]string, iteration int, followRedirect bool) {
@@ -210,7 +215,7 @@ func handleResponse(resp *http.Response, duration float64, bo *output.BuffOut) {
 	}
 
 	defer resp.Body.Close()
-	body, _ := ioutil.ReadAll(resp.Body)
+	body, _ := io.ReadAll(resp.Body)
 
 	if *verboseFlag {
 		bo.PrintStoplight(fmt.Sprintf("Status: %s (%.2f seconds)\n", resp.Status, duration), resp.StatusCode >= 400)
