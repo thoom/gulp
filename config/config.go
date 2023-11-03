@@ -2,7 +2,7 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
+	"os"
 	"strconv"
 	"strings"
 
@@ -90,7 +90,7 @@ func init() {
 
 // LoadConfiguration builds a configuration object based on the fileName passed
 func LoadConfiguration(fileName string) (*Config, error) {
-	dat, err := ioutil.ReadFile(fileName)
+	dat, err := os.ReadFile(fileName)
 	if err != nil {
 		// If the file wasn't found and it's just the default, don't worry about it.
 		if fileName == ".gulp.yml" {

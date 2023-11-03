@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/thoom/gulp/config"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 func TestBuildHeadersBase(t *testing.T) {
@@ -131,7 +133,7 @@ func TestGetVersionEnv(t *testing.T) {
 func TestCreateUserAgent(t *testing.T) {
 	assert := assert.New(t)
 
-	expected := fmt.Sprintf("thoom.GULP/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
+	expected := fmt.Sprintf("thoom.GULP/%s (%s %s)", GetVersion(), cases.Title(language.English).String(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
 	assert.Equal(expected, CreateUserAgent())
 }
 

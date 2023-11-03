@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -41,7 +40,7 @@ func TestLoadConfigurationNoParse(t *testing.T) {
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
-	ioutil.WriteFile(testFile.Name(), []byte{255, 253}, 0644)
+	os.WriteFile(testFile.Name(), []byte{255, 253}, 0644)
 	_, err := LoadConfiguration(testFile.Name())
 	assert.NotNil(err)
 	assert.Contains(fmt.Sprintf("%s", err), "could not parse configuration")
@@ -52,7 +51,7 @@ func TestLoadConfigurationMissingTimeout(t *testing.T) {
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
-	ioutil.WriteFile(testFile.Name(), []byte("url: some_url"), 0644)
+	os.WriteFile(testFile.Name(), []byte("url: some_url"), 0644)
 	config, _ := LoadConfiguration(testFile.Name())
 	assert.Equal("some_url", config.URL)
 	assert.Equal(DefaultTimeout, config.GetTimeout())
@@ -63,7 +62,7 @@ func TestLoadConfigurationFlagsOK(t *testing.T) {
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
-	ioutil.WriteFile(testFile.Name(), []byte("url: some_url"), 0644)
+	os.WriteFile(testFile.Name(), []byte("url: some_url"), 0644)
 	config, _ := LoadConfiguration(testFile.Name())
 	assert.Equal("some_url", config.URL)
 	assert.True(config.FollowRedirects())
@@ -76,7 +75,7 @@ func TestLoadConfigurationFoundTimeout(t *testing.T) {
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
-	ioutil.WriteFile(testFile.Name(), []byte("url: some_url\ntimeout: 100"), 0644)
+	os.WriteFile(testFile.Name(), []byte("url: some_url\ntimeout: 100"), 0644)
 	config, _ := LoadConfiguration(testFile.Name())
 	assert.Equal("some_url", config.URL)
 	assert.Equal(100, config.GetTimeout())
@@ -87,7 +86,7 @@ func TestLoadConfigurationInvalidTimeout(t *testing.T) {
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
-	ioutil.WriteFile(testFile.Name(), []byte("url: some_url\ntimeout: abc"), 0644)
+	os.WriteFile(testFile.Name(), []byte("url: some_url\ntimeout: abc"), 0644)
 	config, _ := LoadConfiguration(testFile.Name())
 	assert.Equal("some_url", config.URL)
 	assert.Equal(DefaultTimeout, config.GetTimeout())
@@ -98,7 +97,7 @@ func TestLoadConfigurationLoadFlagsNegative(t *testing.T) {
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
-	ioutil.WriteFile(testFile.Name(), []byte(`
+	os.WriteFile(testFile.Name(), []byte(`
 flags:
   follow_redirects: false
   use_color: false
@@ -119,7 +118,7 @@ func TestLoadConfigurationLoadFlagsPositive(t *testing.T) {
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
-	ioutil.WriteFile(testFile.Name(), []byte(`
+	os.WriteFile(testFile.Name(), []byte(`
 flags:
   follow_redirects: true
   use_color: true
