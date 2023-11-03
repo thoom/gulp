@@ -27,6 +27,9 @@ jobs:
 
       - name: Staticcheck
         uses: dominikh/staticcheck-action@v1.3.0
+        env: 
+          GOOS: linux
+          GOARCH: amd64
         with:
           install-go: false
           cache-key: ${{ matrix.go }}
