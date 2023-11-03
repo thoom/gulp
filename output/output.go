@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 // Out prints the data to os.Stdout/os.StdErr
@@ -93,8 +95,8 @@ func (bo *BuffOut) PrintVersion(version string) {
 	bo.PrintBlock(fmt.Sprintf(`thoom.GULP
 App version: %s (%s %s)
 Go build: %s
-Author: Z.d.Peacock <zdp@thoomtech.com>
-Link: https://github.com/thoom/gulp`, version, strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH), runtime.Version()))
+Author: Zach Peacock <zach@thoom.net>
+Link: https://github.com/thoom/gulp`, version, cases.Title(language.English).String(runtime.GOOS), strings.ToUpper(runtime.GOARCH), runtime.Version()))
 
 	fmt.Fprintln(bo.Out, "")
 }

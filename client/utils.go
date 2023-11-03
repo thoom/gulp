@@ -5,6 +5,9 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 var defaultVersion string
@@ -75,5 +78,5 @@ func GetVersion() string {
 }
 
 func CreateUserAgent() string {
-	return fmt.Sprintf("thoom.GULP/%s (%s %s)", GetVersion(), strings.Title(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
+	return fmt.Sprintf("thoom.GULP/%s (%s %s)", GetVersion(), cases.Title(language.English).String(runtime.GOOS), strings.ToUpper(runtime.GOARCH))
 }

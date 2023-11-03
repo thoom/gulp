@@ -3,7 +3,6 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -21,6 +20,27 @@ func resetRedirectFlags() {
 	*disableRedirectFlag = false
 }
 
+func TestURLFromFlag(t *testing.T) {
+	assert := assert.New(t)
+
+	path := getPath("http://example.com/foo", []string{})
+	assert.Equal("http://example.com/foo", path)
+}
+
+func TestURLFromArgs(t *testing.T) {
+	assert := assert.New(t)
+
+	path := getPath("", []string{"http://example.com/foo"})
+	assert.Equal("http://example.com/foo", path)
+}
+
+func TestURLFromFlagFromArgs(t *testing.T) {
+	assert := assert.New(t)
+
+	path := getPath("http://example.com/foo", []string{"http://example.com/bar"})
+	assert.Equal("http://example.com/bar", path)
+}
+
 func TestShouldFollowRedirects(t *testing.T) {
 	assert := assert.New(t)
 	resetRedirectFlags()
@@ -36,6 +56,7 @@ func TestShouldFollowRedirectsDisabled(t *testing.T) {
 	*disableRedirectFlag = true
 	assert.False(shouldFollowRedirects())
 }
+
 func TestShouldFollowRedirectsConfig(t *testing.T) {
 	assert := assert.New(t)
 	resetRedirectFlags()
@@ -254,7 +275,7 @@ func TestGetPostBody(t *testing.T) {
 	assert := assert.New(t)
 
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_post_body")
-	ioutil.WriteFile(testFile.Name(), []byte("salutation: hello world\nvalediction: goodbye world"), 0644)
+	os.WriteFile(testFile.Name(), []byte("salutation: hello world\nvalediction: goodbye world"), 0644)
 
 	f, _ := os.Open(testFile.Name())
 	defer f.Close()

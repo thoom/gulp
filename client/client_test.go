@@ -1,7 +1,6 @@
 package client
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"os"
@@ -187,11 +186,11 @@ uHsldhZyjInCxkuuzW3khHFKSs+C
 
 	certFile, _ := os.CreateTemp(os.TempDir(), "test-client")
 	defer certFile.Close()
-	ioutil.WriteFile(certFile.Name(), []byte(cert), 0644)
+	os.WriteFile(certFile.Name(), []byte(cert), 0644)
 
 	keyFile, _ := os.CreateTemp(os.TempDir(), "test-client")
 	defer keyFile.Close()
-	ioutil.WriteFile(keyFile.Name(), []byte(key), 0644)
+	os.WriteFile(keyFile.Name(), []byte(key), 0644)
 
 	clientAuth := config.ClientAuth{
 		Cert: certFile.Name(),

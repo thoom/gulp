@@ -105,37 +105,39 @@ If both are empty, then an error is returned.
 ## CLI Flags
 
 ```
--H request
-		Set a request header
--c configuration
-		The configuration file to use (default ".gulp.yml")
--client-cert string
-		If using client cert auth, the cert to use. MUST be paired with -client-cert-key flag
--client-cert-key string
-		If using client cert auth, the key to use. MUST be paired with -client-cert flag
--follow-redirect
-		Enables following 3XX redirects (default)
--insecure
-		Disable TLS certificate checking
--m method
-		The method to use: ie. HEAD, GET, POST, PUT, DELETE (default "GET")
--no-color
-		Disables color output for the request
--no-redirect
-		Disables following 3XX redirects
--repeat-concurrent connections
-		Number of concurrent connections to use (default 1)
--repeat-times iteration
-		Number of iterations to submit the request (default 1)
--ro
-		Only display the response body (default)
--sco
-		Only display the response code
--timeout seconds
-		The number of seconds to wait before the connection times out (default 300)
--v		Display the response body along with various headers
--version
-		Display the current client version
+  -H request
+        Set a request header
+  -c configuration
+        The configuration file to use (default ".gulp.yml")
+  -client-cert string
+        If using client cert auth, the cert to use. MUST be paired with -client-cert-key flag
+  -client-cert-key string
+        If using client cert auth, the key to use. MUST be paired with -client-cert flag
+  -follow-redirect
+        Enables following 3XX redirects (default)
+  -insecure
+        Disable TLS certificate checking
+  -m method
+        The method to use: ie. HEAD, GET, POST, PUT, DELETE (default "GET")
+  -no-color
+        Disables color output for the request
+  -no-redirect
+        Disables following 3XX redirects
+  -repeat-concurrent connections
+        Number of concurrent connections to use (default 1)
+  -repeat-times iteration
+        Number of iterations to submit the request (default 1)
+  -ro
+        Only display the response body (default)
+  -sco
+        Only display the response code
+  -timeout seconds
+        The number of seconds to wait before the connection times out (default 300)
+  -url url
+        The URL to use for the request. Alternative to requiring a URL at the end of the command
+  -v    Display the response body along with various headers
+  -version
+        Display the current client version
 ```
 
 ## Configuration
