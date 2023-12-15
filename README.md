@@ -59,7 +59,7 @@ docker run --rm -it -v $PWD:/gulp ghcr.io/thoom/gulp
 Finally, you can also just build it directly on your machine if you already have Go installed:
 
 ```
-go get github.com/thoom/gulp
+go install github.com/thoom/gulp@latest
 ```
 
 ## Usage
