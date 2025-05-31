@@ -191,28 +191,63 @@ func buildHTTPClient(followRedirects bool, timeout int, transport *http.Transpor
 	return client
 }
 
-// Creates a ClientAuth object
+// ClientAuthBuilder helps build ClientAuth configurations
+type ClientAuthBuilder struct {
+	auth config.ClientAuth
+}
+
+// NewClientAuthBuilder creates a new builder with base configuration
+func NewClientAuthBuilder(baseConfig config.ClientAuth) *ClientAuthBuilder {
+	return &ClientAuthBuilder{auth: baseConfig}
+}
+
+// WithCert sets the client certificate
+func (b *ClientAuthBuilder) WithCert(cert string) *ClientAuthBuilder {
+	if strings.TrimSpace(cert) != "" {
+		b.auth.Cert = cert
+	}
+	return b
+}
+
+// WithKey sets the client certificate key
+func (b *ClientAuthBuilder) WithKey(key string) *ClientAuthBuilder {
+	if strings.TrimSpace(key) != "" {
+		b.auth.Key = key
+	}
+	return b
+}
+
+// WithCA sets the custom CA certificate
+func (b *ClientAuthBuilder) WithCA(ca string) *ClientAuthBuilder {
+	if strings.TrimSpace(ca) != "" {
+		b.auth.CA = ca
+	}
+	return b
+}
+
+// WithBasicAuth sets basic authentication credentials
+func (b *ClientAuthBuilder) WithBasicAuth(username, password string) *ClientAuthBuilder {
+	if strings.TrimSpace(username) != "" {
+		b.auth.Username = username
+	}
+	if strings.TrimSpace(password) != "" {
+		b.auth.Password = password
+	}
+	return b
+}
+
+// Build returns the final ClientAuth configuration
+func (b *ClientAuthBuilder) Build() config.ClientAuth {
+	return b.auth
+}
+
+// BuildClientAuth creates a ClientAuth object (legacy compatibility)
+// Deprecated: Use NewClientAuthBuilder for better API
 func BuildClientAuth(clientCert, clientCertKey, clientCA, basicAuthUser, basicAuthPass string, clientCertConfig config.ClientAuth) config.ClientAuth {
-	clientAuth := clientCertConfig
-	if strings.TrimSpace(clientCert) != "" {
-		clientAuth.Cert = clientCert
-	}
-
-	if strings.TrimSpace(clientCertKey) != "" {
-		clientAuth.Key = clientCertKey
-	}
-
-	if strings.TrimSpace(clientCA) != "" {
-		clientAuth.CA = clientCA
-	}
-
-	if strings.TrimSpace(basicAuthUser) != "" {
-		clientAuth.Username = basicAuthUser
-	}
-
-	if strings.TrimSpace(basicAuthPass) != "" {
-		clientAuth.Password = basicAuthPass
-	}
-
-	return clientAuth
+	return NewClientAuthBuilder(clientCertConfig).
+		WithCert(clientCert).
+		WithKey(clientCertKey).
+		WithCA(clientCA).
+		WithBasicAuth(basicAuthUser, basicAuthPass).
+		Build()
 }

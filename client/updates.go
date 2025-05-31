@@ -40,9 +40,9 @@ func CheckForUpdates(currentVersion string, timeout time.Duration) (*UpdateInfo,
 	}
 
 	// GitHub API endpoint for latest release
-	url := "https://api.github.com/repos/thoom/gulp/releases/latest"
+	apiURL := "https://api.github.com/repos/thoom/gulp/releases/latest"
 
-	req, err := http.NewRequest("GET", url, nil)
+	req, err := http.NewRequest("GET", apiURL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}

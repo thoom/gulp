@@ -134,14 +134,13 @@ headers:
   Authorization: Bearer your-token-here
   X-Custom-Header: some-value
 
-# Optional client certificate authentication
+# Optional client authentication (supports both certificate and basic auth)
 client_auth:
+  # Client certificate authentication
   cert: /path/to/client-cert.pem
   key: /path/to/client-key.pem
   ca: /path/to/ca-cert.pem
-
-# Optional basic authentication
-client_auth:
+  # Basic authentication
   username: your-username
   password: your-password
 
