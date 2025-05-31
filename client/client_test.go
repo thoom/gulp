@@ -27,7 +27,7 @@ func TestCreateRequest(t *testing.T) {
 	headers := map[string]string{}
 	headers["X-Test-Header"] = "abc123def"
 
-	req, err := CreateRequest(method, url, nil, headers)
+	req, err := CreateRequest(method, url, nil, headers, config.ClientAuth{})
 	assert.Nil(err)
 	assert.Equal(url, req.URL.String())
 	assert.Equal(method, req.Method)
@@ -43,7 +43,7 @@ func TestCreateRequestBadMethod(t *testing.T) {
 	url := "http://test.ex.io"
 	headers := map[string]string{}
 
-	req, err := CreateRequest(method, url, nil, headers)
+	req, err := CreateRequest(method, url, nil, headers, config.ClientAuth{})
 	assert.Nil(req)
 	assert.Error(err)
 }
@@ -55,7 +55,7 @@ func TestCreateRequestGetWithBody(t *testing.T) {
 	url := "http://test.ex.io"
 	body := []byte("body!")
 
-	req, err := CreateRequest(method, url, body, map[string]string{})
+	req, err := CreateRequest(method, url, body, map[string]string{}, config.ClientAuth{})
 	assert.Nil(err)
 	assert.Equal(url, req.URL.String())
 	assert.Equal(method, req.Method)
@@ -70,7 +70,7 @@ func TestCreateRequestPostWithBody(t *testing.T) {
 	url := "http://test.ex.io"
 	body := "body!"
 
-	req, err := CreateRequest(method, url, []byte(body), map[string]string{})
+	req, err := CreateRequest(method, url, []byte(body), map[string]string{}, config.ClientAuth{})
 	assert.Nil(err)
 	assert.Equal(url, req.URL.String())
 	assert.Equal(method, req.Method)
@@ -217,61 +217,51 @@ func TestBuildClientAgentConfigOnly(t *testing.T) {
 	assert := assert.New(t)
 
 	def := config.New.ClientAuth
-	res := BuildClientAuth("  ", " ", "", def)
+
+	res := BuildClientAuth("  ", " ", "", "", "", def)
 	assert.Equal(def, res)
 }
 
 func TestBuildAgentCertFlag(t *testing.T) {
 	assert := assert.New(t)
 
-	def := config.ClientAuth{
-		Cert: "def.pem",
-		Key:  "defkey.pem",
-	}
+	def := config.New.ClientAuth
 
-	res := BuildClientAuth("test1.pem", "", "", def)
+	res := BuildClientAuth("test1.pem", "", "", "", "", def)
 	assert.Equal("test1.pem", res.Cert)
-	assert.Equal("defkey.pem", res.Key)
+	assert.Equal(def.Key, res.Key)
+	assert.Equal(def.CA, res.CA)
 }
 
 func TestBuildAgentCertKeyFlag(t *testing.T) {
 	assert := assert.New(t)
 
-	def := config.ClientAuth{
-		Cert: "def.pem",
-		Key:  "defkey.pem",
-	}
+	def := config.New.ClientAuth
 
-	res := BuildClientAuth("", "testkey.pem", "", def)
-	assert.Equal("def.pem", res.Cert)
+	res := BuildClientAuth("", "testkey.pem", "", "", "", def)
+	assert.Equal(def.Cert, res.Cert)
 	assert.Equal("testkey.pem", res.Key)
+	assert.Equal(def.CA, res.CA)
 }
 
 // Tests for CA certificate functionality
 func TestBuildClientAuthWithCA(t *testing.T) {
 	assert := assert.New(t)
 
-	def := config.ClientAuth{
-		Cert: "def.pem",
-		Key:  "defkey.pem",
-		CA:   "defca.pem",
-	}
+	def := config.New.ClientAuth
 
-	res := BuildClientAuth("", "", "customca.pem", def)
-	assert.Equal("def.pem", res.Cert)
-	assert.Equal("defkey.pem", res.Key)
+	res := BuildClientAuth("", "", "customca.pem", "", "", def)
 	assert.Equal("customca.pem", res.CA)
 }
 
 func TestBuildClientAuthCAFromConfig(t *testing.T) {
 	assert := assert.New(t)
 
-	def := config.ClientAuth{
-		CA: "configca.pem",
-	}
+	def := config.New.ClientAuth
+	def.CA = "testca.pem"
 
-	res := BuildClientAuth("", "", "", def)
-	assert.Equal("configca.pem", res.CA)
+	res := BuildClientAuth("", "", "", "", "", def)
+	assert.Equal("testca.pem", res.CA)
 }
 
 // Tests for custom CA certificate file path
@@ -535,4 +525,61 @@ func TestCreateClientInvalidInlineCert(t *testing.T) {
 	_, err := CreateClient(true, 10, clientAuth)
 	assert.NotNil(err)
 	assert.Contains(err.Error(), "invalid client cert/key")
+}
+
+func TestCreateRequestWithBasicAuth(t *testing.T) {
+	assert := assert.New(t)
+
+	method := "POST"
+	url := "http://test.ex.io"
+	headers := map[string]string{}
+	clientAuth := config.ClientAuth{
+		Username: "testuser",
+		Password: "testpass",
+	}
+
+	req, err := CreateRequest(method, url, nil, headers, clientAuth)
+	assert.Nil(err)
+	assert.Equal(url, req.URL.String())
+	assert.Equal(method, req.Method)
+
+	// Check that Authorization header is set with basic auth
+	authHeader := req.Header.Get("Authorization")
+	assert.NotEmpty(authHeader)
+	assert.Contains(authHeader, "Basic ")
+
+	// Verify the base64 encoding is correct
+	expectedAuth := "Basic dGVzdHVzZXI6dGVzdHBhc3M=" // base64 of "testuser:testpass"
+	assert.Equal(expectedAuth, authHeader)
+}
+
+func TestBuildClientAuthWithBasicAuth(t *testing.T) {
+	assert := assert.New(t)
+
+	def := config.New.ClientAuth
+
+	res := BuildClientAuth("", "", "", "myuser", "mypass", def)
+	assert.Equal("myuser", res.Username)
+	assert.Equal("mypass", res.Password)
+}
+
+func TestBasicAuthUsage(t *testing.T) {
+	assert := assert.New(t)
+
+	// Test UseBasicAuth method
+	auth := config.ClientAuth{
+		Username: "user",
+		Password: "pass",
+	}
+	assert.True(auth.UseBasicAuth())
+
+	// Test with empty values
+	authEmpty := config.ClientAuth{}
+	assert.False(authEmpty.UseBasicAuth())
+
+	// Test with only username
+	authPartial := config.ClientAuth{
+		Username: "user",
+	}
+	assert.False(authPartial.UseBasicAuth())
 }

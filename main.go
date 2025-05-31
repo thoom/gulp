@@ -18,7 +18,9 @@ import (
 	"github.com/ghodss/yaml"
 	"github.com/thoom/gulp/client"
 	"github.com/thoom/gulp/config"
+	"github.com/thoom/gulp/form"
 	"github.com/thoom/gulp/output"
+	"github.com/thoom/gulp/template"
 )
 
 type stringSlice []string
@@ -42,6 +44,8 @@ var (
 	clientCert          = flag.String("client-cert", "", "If using client cert auth, the cert to use. MUST be paired with -client-cert-key flag")
 	clientCertKey       = flag.String("client-cert-key", "", "If using client cert auth, the key to use. MUST be paired with -client-cert flag")
 	clientCA            = flag.String("custom-ca", "", "If using a custom CA certificate, the CA cert file to use for verification")
+	basicAuthUser       = flag.String("basic-auth-user", "", "Username for basic authentication")
+	basicAuthPass       = flag.String("basic-auth-pass", "", "Password for basic authentication")
 	insecureFlag        = flag.Bool("insecure", false, "Disable TLS certificate checking")
 	responseOnlyFlag    = flag.Bool("ro", false, "Only display the response body (default)")
 	statusCodeOnlyFlag  = flag.Bool("sco", false, "Only display the response code")
@@ -54,10 +58,16 @@ var (
 	concurrentFlag      = flag.Int("repeat-concurrent", 1, "Number of concurrent `connections` to use")
 	urlFlag             = flag.String("url", "", "The `URL` to use for the request. Alternative to requiring a URL at the end of the command")
 	versionFlag         = flag.Bool("version", false, "Display the current client version")
+
+	// New flags for template and payload file support
+	fileFlag        = flag.String("file", "", "JSON, YAML, or Go template `file` to use as request body (template processing enabled when -var flags are present)")
+	templateVarFlag stringSlice // Will be initialized in main() with flag.Var
+	formFlag        = flag.Bool("form", false, "Send data as application/x-www-form-urlencoded instead of JSON")
 )
 
 func main() {
 	flag.Var(&reqHeaders, "H", "Set a `request` header")
+	flag.Var(&templateVarFlag, "var", "Set a template `variable` in the format key=value for use in Go templates")
 	flag.Parse()
 
 	// Load the custom configuration
@@ -92,12 +102,21 @@ func main() {
 	followRedirect := shouldFollowRedirects()
 
 	var body []byte
+	var formContentType string
 	// Don't get the post body if it's a GET/HEAD request
 	if *methodFlag != "GET" && *methodFlag != "HEAD" {
 		var err error
-		body, err = getPostBody(os.Stdin)
+		body, err = getPostBody()
 		if err != nil {
 			output.ExitErr("", err)
+		}
+
+		// Process form data if form flag is set
+		if *formFlag && body != nil {
+			body, formContentType, err = form.ProcessFormData(body)
+			if err != nil {
+				output.ExitErr("", err)
+			}
 		}
 	}
 
@@ -107,10 +126,15 @@ func main() {
 		output.ExitErr("", err)
 	}
 
-	// Convert the YAML/JSON body if necessary
-	body, err = convertJSONBody(body, headers)
-	if err != nil {
-		output.ExitErr("", err)
+	// Set form content type if processing form data
+	if *formFlag && formContentType != "" {
+		headers["CONTENT-TYPE"] = formContentType
+	} else if !*formFlag {
+		// Convert the YAML/JSON body if necessary (only when not in form mode)
+		body, err = convertJSONBody(body, headers)
+		if err != nil {
+			output.ExitErr("", err)
+		}
 	}
 
 	maxChan := make(chan bool, *concurrentFlag)
@@ -142,7 +166,10 @@ func getPath(urlFlag string, args []string) string {
 func processRequest(url string, body []byte, headers map[string]string, iteration int, followRedirect bool) {
 	var startTimer time.Time
 
-	req, err := client.CreateRequest(*methodFlag, url, body, headers)
+	// Build client auth configuration
+	clientAuth := client.BuildClientAuth(*clientCert, *clientCertKey, *clientCA, *basicAuthUser, *basicAuthPass, gulpConfig.ClientAuth)
+
+	req, err := client.CreateRequest(*methodFlag, url, body, headers, clientAuth)
 	if err != nil {
 		output.ExitErr("", err)
 	}
@@ -152,7 +179,7 @@ func processRequest(url string, body []byte, headers map[string]string, iteratio
 	bo := &output.BuffOut{Out: b, Err: b}
 
 	startTimer = time.Now()
-	reqClient, err := client.CreateClient(followRedirect, calculateTimeout(), client.BuildClientAuth(*clientCert, *clientCertKey, *clientCA, gulpConfig.ClientAuth))
+	reqClient, err := client.CreateClient(followRedirect, calculateTimeout(), clientAuth)
 	if err != nil {
 		output.ExitErr("Could not create client: ", err)
 	}
@@ -256,11 +283,19 @@ func handleResponse(resp *http.Response, duration float64, bo *output.BuffOut) {
 	fmt.Fprintln(bo.Out, string(body))
 }
 
-func getPostBody(input *os.File) ([]byte, error) {
-	stat, _ := input.Stat()
+func getPostBody() ([]byte, error) {
+	// Priority order: file > stdin
+
+	// Handle file input
+	if *fileFlag != "" {
+		return template.ProcessTemplate(*fileFlag, templateVarFlag)
+	}
+
+	// Handle stdin (existing behavior)
+	stat, _ := os.Stdin.Stat()
 
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		scanner := bufio.NewScanner(input)
+		scanner := bufio.NewScanner(os.Stdin)
 		var stdin []byte
 		first := true
 		for scanner.Scan() {
@@ -275,6 +310,11 @@ func getPostBody(input *os.File) ([]byte, error) {
 
 		if err := scanner.Err(); err != nil {
 			return nil, fmt.Errorf("reading standard input: %s", err)
+		}
+
+		// If template variables are provided, process stdin as a template
+		if len(templateVarFlag) > 0 {
+			return template.ProcessStdin(stdin, templateVarFlag)
 		}
 
 		return stdin, nil

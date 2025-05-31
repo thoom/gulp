@@ -1,0 +1,14 @@
+name: Jane Smith
+email: jane.smith@example.com
+age: 28
+active: true
+preferences:
+  theme: light
+  notifications: false
+  language: en
+tags:
+  - designer
+  - ux-expert
+metadata:
+  created_by: admin
+  department: design 

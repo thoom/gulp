@@ -21,9 +21,11 @@ type Config struct {
 
 // ClientAuth leads to files with PEM-encoded data tied to client cert authentication
 type ClientAuth struct {
-	Cert string `json:"cert"`
-	Key  string `json:"key"`
-	CA   string `json:"ca"`
+	Cert     string `json:"cert"`
+	Key      string `json:"key"`
+	CA       string `json:"ca"`
+	Username string `json:"username"`
+	Password string `json:"password"`
 }
 
 // ConfigFlags contains valid configuration flags
@@ -67,6 +69,11 @@ func (gc *Config) VerifyTLS() bool {
 
 func (gc *ClientAuth) UseAuth() bool {
 	return strings.TrimSpace(gc.Cert) != "" && strings.TrimSpace(gc.Key) != ""
+}
+
+// UseBasicAuth determines whether or not to use basic authentication
+func (gc *ClientAuth) UseBasicAuth() bool {
+	return strings.TrimSpace(gc.Username) != "" && strings.TrimSpace(gc.Password) != ""
 }
 
 // GetTimeout Parses the config string and returns the default if the value wasn't passed
@@ -122,6 +129,11 @@ client_auth:
   key: /path/to/client-key.pem
   ca: /path/to/ca-cert.pem
 
+# Optional basic authentication
+client_auth:
+  username: your-username
+  password: your-password
+
 # Optional flags (all default to true)
 flags:
   follow_redirects: "true"
@@ -148,6 +160,15 @@ For more examples, see: https://github.com/thoom/gulp#configuration`, fileName, 
 	// Clean up spaced padding
 	if gulpConfig.ClientAuth.CA != "" {
 		gulpConfig.ClientAuth.CA = strings.TrimSpace(gulpConfig.ClientAuth.CA)
+	}
+
+	// Clean up spaced padding for basic auth
+	if gulpConfig.ClientAuth.Username != "" {
+		gulpConfig.ClientAuth.Username = strings.TrimSpace(gulpConfig.ClientAuth.Username)
+	}
+
+	if gulpConfig.ClientAuth.Password != "" {
+		gulpConfig.ClientAuth.Password = strings.TrimSpace(gulpConfig.ClientAuth.Password)
 	}
 
 	return gulpConfig, nil

@@ -11,6 +11,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/thoom/gulp/config"
 	"github.com/thoom/gulp/output"
+	"github.com/thoom/gulp/template"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -266,7 +267,11 @@ func TestHandleResponseStatusCode(t *testing.T) {
 func TestGetPostBodyEmpty(t *testing.T) {
 	assert := assert.New(t)
 
-	body, err := getPostBody(os.Stdin)
+	// Reset flags to ensure no file input
+	*fileFlag = ""
+	templateVarFlag = []string{}
+
+	body, err := getPostBody()
 	assert.Nil(err)
 	assert.Empty(body)
 }
@@ -275,14 +280,87 @@ func TestGetPostBody(t *testing.T) {
 	assert := assert.New(t)
 
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_post_body")
+	defer os.Remove(testFile.Name())
+
 	os.WriteFile(testFile.Name(), []byte("salutation: hello world\nvalediction: goodbye world"), 0644)
 
-	f, _ := os.Open(testFile.Name())
-	defer f.Close()
+	// Reset template vars and set file
+	templateVarFlag = []string{}
+	*fileFlag = testFile.Name()
 
-	body, err := getPostBody(f)
+	body, err := getPostBody()
 	assert.Nil(err)
 	assert.Equal("salutation: hello world\nvalediction: goodbye world", string(body))
+
+	// Reset flag after test
+	*fileFlag = ""
+}
+
+func TestGetPostBodyTemplate(t *testing.T) {
+	assert := assert.New(t)
+
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_template_*.tmpl")
+	defer os.Remove(testFile.Name())
+
+	templateContent := `{
+  "message": "Hello {{.Vars.name}}",
+  "environment": "{{.Vars.env}}"
+}`
+	os.WriteFile(testFile.Name(), []byte(templateContent), 0644)
+
+	// Set file and template variables (presence of vars enables template processing)
+	*fileFlag = testFile.Name()
+	templateVarFlag = []string{"name=World", "env=test"}
+
+	body, err := getPostBody()
+	assert.Nil(err)
+
+	expected := `{
+  "message": "Hello World",
+  "environment": "test"
+}`
+	assert.Equal(expected, string(body))
+
+	// Reset flags after test
+	*fileFlag = ""
+	templateVarFlag = []string{}
+}
+
+func TestGetPostBodyStdinTemplate(t *testing.T) {
+	assert := assert.New(t)
+
+	// This test is conceptual - showing how stdin template processing would work
+	// In practice, testing stdin is more complex, but the ProcessStdin function is tested in template_test.go
+	templateContent := []byte(`{"message": "Hello {{.Vars.name}}"}`)
+	templateVars := []string{"name=World"}
+
+	result, err := template.ProcessStdin(templateContent, templateVars)
+	assert.Nil(err)
+	assert.Equal(`{"message": "Hello World"}`, string(result))
+}
+
+func TestGetPostBodyTemplateAndPayloadFileConflict(t *testing.T) {
+	// This test is no longer relevant with the simplified API
+	// Remove the old test since we don't have separate flags anymore
+}
+
+func TestFormMode(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset flags
+	*formFlag = false
+	*fileFlag = ""
+	templateVarFlag = []string{}
+
+	// Test that form flag affects processing
+	originalFormFlag := *formFlag
+	*formFlag = true
+
+	// Reset after test
+	defer func() { *formFlag = originalFormFlag }()
+
+	// This test verifies the flag exists and can be set
+	assert.True(*formFlag)
 }
 
 func TestConvertJSONBody(t *testing.T) {

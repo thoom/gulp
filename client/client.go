@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"crypto/x509"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
@@ -29,7 +30,7 @@ func DisableTLSVerification() {
 }
 
 // CreateRequest will create a request object
-func CreateRequest(method, url string, body []byte, headers map[string]string) (*http.Request, error) {
+func CreateRequest(method, url string, body []byte, headers map[string]string, clientAuth config.ClientAuth) (*http.Request, error) {
 	var reader io.Reader
 
 	// Don't build the reader if using a GET/HEAD request
@@ -40,6 +41,12 @@ func CreateRequest(method, url string, body []byte, headers map[string]string) (
 	req, err := http.NewRequest(method, url, reader)
 	if err != nil {
 		return nil, fmt.Errorf("could not build request: %s", err)
+	}
+
+	// Add basic auth header if credentials are provided
+	if clientAuth.UseBasicAuth() {
+		auth := base64.StdEncoding.EncodeToString([]byte(clientAuth.Username + ":" + clientAuth.Password))
+		req.Header.Set("Authorization", "Basic "+auth)
 	}
 
 	for k, v := range headers {
@@ -133,7 +140,7 @@ func CreateClient(followRedirects bool, timeout int, clientCert config.ClientAut
 }
 
 // Creates a ClientAuth object
-func BuildClientAuth(clientCert, clientCertKey, clientCA string, clientCertConfig config.ClientAuth) config.ClientAuth {
+func BuildClientAuth(clientCert, clientCertKey, clientCA, basicAuthUser, basicAuthPass string, clientCertConfig config.ClientAuth) config.ClientAuth {
 	clientAuth := clientCertConfig
 	if strings.TrimSpace(clientCert) != "" {
 		clientAuth.Cert = clientCert
@@ -145,6 +152,14 @@ func BuildClientAuth(clientCert, clientCertKey, clientCA string, clientCertConfi
 
 	if strings.TrimSpace(clientCA) != "" {
 		clientAuth.CA = clientCA
+	}
+
+	if strings.TrimSpace(basicAuthUser) != "" {
+		clientAuth.Username = basicAuthUser
+	}
+
+	if strings.TrimSpace(basicAuthPass) != "" {
+		clientAuth.Password = basicAuthPass
 	}
 
 	return clientAuth

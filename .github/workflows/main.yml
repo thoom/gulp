@@ -32,6 +32,20 @@ jobs:
           if_true: ${{ github.ref }}
           if_false: ${{ steps.bumpr.outputs.next_version }}
 
+      # Create release.
+      - uses: actions/create-release@v1.1.4
+        id: create_release
+        if: ${{ steps.tag.outputs.value != '' }}
+        env:
+          # This token is provided by Actions, you do not need to create your own token
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.tag.outputs.value }}
+          release_name: Release ${{ steps.tag.outputs.value }}
+          body: ${{ steps.bumpr.outputs.message }}
+          draft: false
+          prerelease: false
+
       - uses: actions/setup-go@v5
         with:
           go-version: 1.24.x
@@ -57,21 +71,62 @@ jobs:
         run: |
           ./scripts/deploy.sh
 
-      # Create release and upload assets
-      - name: Create Release
+      - name: Upload Linux 386
+        id: upload-release-l386
         if: ${{ steps.tag.outputs.value != '' }}
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.tag.outputs.value }}
-          name: Release ${{ steps.tag.outputs.value }}
-          body: ${{ steps.bumpr.outputs.message }}
-          draft: false
-          prerelease: false
-          files: |
-            gulp.linux-386.tar.gz
-            gulp.linux-amd64.tar.gz
-            gulp.darwin-amd64.tar.gz
-            gulp.darwin-arm64.tar.gz
-            gulp.windows.zip
+        uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./gulp.linux-386.tar.gz
+          asset_name: gulp.linux-386.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Linux amd64
+        id: upload-release-l64
+        uses: actions/upload-release-asset@v1.0.2
+        if: ${{ steps.tag.outputs.value != '' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./gulp.linux-amd64.tar.gz
+          asset_name: gulp.linux-amd64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Darwin amd64
+        id: upload-release-d64
+        if: ${{ steps.tag.outputs.value != '' }}
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./gulp.darwin-amd64.tar.gz
+          asset_name: gulp.darwin-amd64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Darwin arm64
+        id: upload-release-dArm64
+        if: ${{ steps.tag.outputs.value != '' }}
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./gulp.darwin-arm64.tar.gz
+          asset_name: gulp.darwin-arm64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Windows
+        id: upload-release-w
+        if: ${{ steps.tag.outputs.value != '' }}
+        uses: actions/upload-release-asset@v1.0.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./gulp.windows.zip
+          asset_name: gulp.windows.zip
+          asset_content_type: application/zip

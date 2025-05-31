@@ -172,3 +172,19 @@ client_auth:
 	assert.Equal("someFile.pem", config.ClientAuth.Cert)
 	assert.Equal("CLIENT_CERT_KEY", config.ClientAuth.Key)
 }
+
+func TestLoadConfigurationBasicAuth(t *testing.T) {
+	assert := assert.New(t)
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
+	defer testFile.Close()
+
+	os.WriteFile(testFile.Name(), []byte(`
+client_auth:
+  username: testuser
+  password: testpass
+  `), 0644)
+	config, _ := LoadConfiguration(testFile.Name())
+	assert.Equal("testuser", config.ClientAuth.Username)
+	assert.Equal("testpass", config.ClientAuth.Password)
+	assert.True(config.ClientAuth.UseBasicAuth())
+}
