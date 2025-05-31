@@ -289,9 +289,7 @@ func buildRequestInfo(url, protocol string, headers map[string][]string, content
 
 	// Add sorted headers
 	sortedHeaders := getSortedHeaders(enrichedHeaders)
-	for _, headerLine := range sortedHeaders {
-		block = append(block, headerLine)
-	}
+	block = append(block, sortedHeaders...)
 
 	return strings.Join(block, "\n")
 }
