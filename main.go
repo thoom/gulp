@@ -86,7 +86,25 @@ func main() {
 	filterDisplayFlags()
 
 	if *versionFlag {
-		output.Out.PrintVersion(client.GetVersion())
+		// Check for updates with a 3-second timeout
+		currentVersion := client.GetVersion()
+		updateInfo, err := client.CheckForUpdates(currentVersion, 3*time.Second)
+
+		if err != nil {
+			// If update check fails, just show the version without update info
+			output.Out.PrintVersion(currentVersion)
+			if *verboseFlag {
+				output.Out.PrintWarning(fmt.Sprintf("Could not check for updates: %s", err))
+			}
+		} else {
+			// Show version with update information
+			output.Out.PrintVersionWithUpdates(
+				currentVersion,
+				updateInfo.HasUpdate,
+				updateInfo.LatestVersion,
+				updateInfo.UpdateURL,
+			)
+		}
 		os.Exit(0)
 	}
 

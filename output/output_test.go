@@ -3,7 +3,6 @@ package output
 import (
 	"bytes"
 	"fmt"
-	"strings"
 	"testing"
 
 	"github.com/fatih/color"
@@ -96,10 +95,36 @@ func TestPrintErrNoLabel(t *testing.T) {
 
 func TestPrintVersion(t *testing.T) {
 	assert := assert.New(t)
+	tst := &BuffOut{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
 
-	b := &bytes.Buffer{}
-	tst := &BuffOut{Out: b, Err: b}
 	expected := "version: abc123def"
 	tst.PrintVersion("abc123def")
-	assert.True(strings.Contains(b.String(), expected))
+
+	assert.Contains(tst.Out.(*bytes.Buffer).String(), expected)
+}
+
+func TestPrintVersionWithUpdates(t *testing.T) {
+	assert := assert.New(t)
+
+	t.Run("with update available", func(t *testing.T) {
+		tst := &BuffOut{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
+
+		tst.PrintVersionWithUpdates("1.0.0", true, "1.1.0", "https://github.com/thoom/gulp/releases/tag/v1.1.0")
+		output := tst.Out.(*bytes.Buffer).String()
+
+		assert.Contains(output, "1.0.0")
+		assert.Contains(output, "Update available")
+		assert.Contains(output, "1.1.0")
+		assert.Contains(output, "https://github.com/thoom/gulp/releases/tag/v1.1.0")
+	})
+
+	t.Run("no update available", func(t *testing.T) {
+		tst := &BuffOut{Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}
+
+		tst.PrintVersionWithUpdates("1.0.0", false, "1.0.0", "")
+		output := tst.Out.(*bytes.Buffer).String()
+
+		assert.Contains(output, "1.0.0")
+		assert.Contains(output, "latest version")
+	})
 }
