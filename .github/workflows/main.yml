@@ -11,17 +11,17 @@ jobs:
     if: github.event.action == 'labeled'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - uses: haya14busa/action-bumpr@v1
   release:
     if: github.event.action != 'labeled'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
 
       # Bump version on merging Pull Requests with specific labels. (bump:major,bump:minor,bump:patch)
       - id: bumpr
-        if: "!startsWith(github.ref, 'refs/tags/')"
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
         uses: haya14busa/action-bumpr@v1
 
       # Get tag name.
@@ -35,7 +35,7 @@ jobs:
       # Create release.
       - uses: actions/create-release@v1
         id: create_release
-        if: "steps.tag.outputs.value != ''"
+        if: ${{ steps.tag.outputs.value != '' }}
         env:
           # This token is provided by Actions, you do not need to create your own token
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,13 +46,13 @@ jobs:
           draft: false
           prerelease: false
 
-      - uses: actions/setup-go@v2
+      - uses: actions/setup-go@v5
         with:
-          go-version: 1.21.x
+          go-version: 1.24.x
 
       # Build release
       - name: Build project
-        if: "steps.tag.outputs.value != ''"
+        if: ${{ steps.tag.outputs.value != '' }}
         env:
           RELEASE_VERSION: ${{ steps.tag.outputs.value }}
         run: |
@@ -60,7 +60,7 @@ jobs:
 
       # Deploy Docker release
       - name: Deploy Docker image
-        if: "steps.tag.outputs.value != ''"
+        if: ${{ steps.tag.outputs.value != '' }}
         env:
           IMAGE_NAME: ${{ github.repository }}
           RELEASE_VERSION: ${{ steps.tag.outputs.value }}
@@ -73,7 +73,7 @@ jobs:
 
       - name: Upload Linux 386
         id: upload-release-l386
-        if: "steps.tag.outputs.value != ''"
+        if: ${{ steps.tag.outputs.value != '' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,7 +86,7 @@ jobs:
       - name: Upload Linux amd64
         id: upload-release-l64
         uses: actions/upload-release-asset@v1
-        if: "steps.tag.outputs.value != ''"
+        if: ${{ steps.tag.outputs.value != '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -97,7 +97,7 @@ jobs:
 
       - name: Upload Darwin amd64
         id: upload-release-d64
-        if: "steps.tag.outputs.value != ''"
+        if: ${{ steps.tag.outputs.value != '' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -109,7 +109,7 @@ jobs:
 
       - name: Upload Darwin arm64
         id: upload-release-dArm64
-        if: "steps.tag.outputs.value != ''"
+        if: ${{ steps.tag.outputs.value != '' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -121,7 +121,7 @@ jobs:
 
       - name: Upload Windows
         id: upload-release-w
-        if: "steps.tag.outputs.value != ''"
+        if: ${{ steps.tag.outputs.value != '' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -3,9 +3,11 @@ package client
 import (
 	"bytes"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -16,7 +18,14 @@ var buildVersion string
 
 // DisableTLSVerification disables TLS verification
 func DisableTLSVerification() {
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
+		InsecureSkipVerify: true,
+		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
+			// This function will be called instead of the default verification
+			// Here you can implement your own logic or simply return nil to bypass all checks
+			return nil
+		},
+	}
 }
 
 // CreateRequest will create a request object
@@ -45,15 +54,66 @@ func CreateClient(followRedirects bool, timeout int, clientCert config.ClientAut
 		DisableCompression: false,
 	}
 
+	// Initialize TLS config
+	tlsConfig := &tls.Config{}
+
+	// Handle custom CA certificate
+	if strings.TrimSpace(clientCert.CA) != "" {
+		var caCert []byte
+		var err error
+
+		caData := strings.TrimSpace(clientCert.CA)
+
+		// Check if it's direct PEM content (starts with -----BEGIN)
+		if strings.HasPrefix(caData, "-----BEGIN") {
+			// It's direct PEM content
+			caCert = []byte(caData)
+		} else {
+			// It's a file path
+			caCert, err = os.ReadFile(caData)
+			if err != nil {
+				return nil, fmt.Errorf("could not read CA certificate file: %s", err)
+			}
+		}
+
+		caCertPool := x509.NewCertPool()
+		if !caCertPool.AppendCertsFromPEM(caCert) {
+			return nil, fmt.Errorf("failed to parse CA certificate")
+		}
+
+		tlsConfig.RootCAs = caCertPool
+	}
+
+	// Handle client certificate authentication
 	if clientCert.UseAuth() {
-		cert, err := tls.LoadX509KeyPair(clientCert.Cert, clientCert.Key)
+		var cert tls.Certificate
+		var err error
+
+		certData := strings.TrimSpace(clientCert.Cert)
+		keyData := strings.TrimSpace(clientCert.Key)
+
+		// Check if both cert and key are direct PEM content
+		if strings.HasPrefix(certData, "-----BEGIN") && strings.HasPrefix(keyData, "-----BEGIN") {
+			// Both are direct PEM content
+			cert, err = tls.X509KeyPair([]byte(certData), []byte(keyData))
+		} else if !strings.HasPrefix(certData, "-----BEGIN") && !strings.HasPrefix(keyData, "-----BEGIN") {
+			// Both are file paths
+			cert, err = tls.LoadX509KeyPair(certData, keyData)
+		} else {
+			// Mixed format - one is inline, one is file path - this is an error
+			return nil, fmt.Errorf("client certificate and key must both be either file paths or inline PEM content, not mixed")
+		}
+
 		if err != nil {
 			return nil, fmt.Errorf("invalid client cert/key: %s", err)
 		}
 
-		tr.TLSClientConfig = &tls.Config{
-			Certificates: []tls.Certificate{cert},
-		}
+		tlsConfig.Certificates = []tls.Certificate{cert}
+	}
+
+	// Only set TLS config if we have either custom CA or client certs
+	if strings.TrimSpace(clientCert.CA) != "" || clientCert.UseAuth() {
+		tr.TLSClientConfig = tlsConfig
 	}
 
 	if !followRedirects {
@@ -73,7 +133,7 @@ func CreateClient(followRedirects bool, timeout int, clientCert config.ClientAut
 }
 
 // Creates a ClientAuth object
-func BuildClientAuth(clientCert, clientCertKey string, clientCertConfig config.ClientAuth) config.ClientAuth {
+func BuildClientAuth(clientCert, clientCertKey, clientCA string, clientCertConfig config.ClientAuth) config.ClientAuth {
 	clientAuth := clientCertConfig
 	if strings.TrimSpace(clientCert) != "" {
 		clientAuth.Cert = clientCert
@@ -81,6 +141,10 @@ func BuildClientAuth(clientCert, clientCertKey string, clientCertConfig config.C
 
 	if strings.TrimSpace(clientCertKey) != "" {
 		clientAuth.Key = clientCertKey
+	}
+
+	if strings.TrimSpace(clientCA) != "" {
+		clientAuth.CA = clientCA
 	}
 
 	return clientAuth

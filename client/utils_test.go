@@ -140,7 +140,7 @@ func TestCreateUserAgent(t *testing.T) {
 func TestBuildClientAgent(t *testing.T) {
 	assert := assert.New(t)
 
-	res := BuildClientAuth("test.pem", "test.key", config.New.ClientAuth)
+	res := BuildClientAuth("test.pem", "test.key", "", config.New.ClientAuth)
 	assert.Equal("test.pem", res.Cert)
 	assert.Equal("test.key", res.Key)
 }

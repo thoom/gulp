@@ -23,6 +23,7 @@ type Config struct {
 type ClientAuth struct {
 	Cert string `json:"cert"`
 	Key  string `json:"key"`
+	CA   string `json:"ca"`
 }
 
 // ConfigFlags contains valid configuration flags
@@ -113,6 +114,11 @@ func LoadConfiguration(fileName string) (*Config, error) {
 	// Clean up spaced padding
 	if gulpConfig.ClientAuth.Key != "" {
 		gulpConfig.ClientAuth.Key = strings.TrimSpace(gulpConfig.ClientAuth.Key)
+	}
+
+	// Clean up spaced padding
+	if gulpConfig.ClientAuth.CA != "" {
+		gulpConfig.ClientAuth.CA = strings.TrimSpace(gulpConfig.ClientAuth.CA)
 	}
 
 	return gulpConfig, nil
