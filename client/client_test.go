@@ -499,7 +499,7 @@ func TestCreateClientInvalidCAFile(t *testing.T) {
 
 	_, err := CreateClient(true, 10, clientAuth)
 	assert.NotNil(err)
-	assert.Contains(err.Error(), "could not read CA certificate file")
+	assert.Contains(err.Error(), "could not read CA certificate")
 }
 
 func TestCreateClientInvalidCAPEM(t *testing.T) {
@@ -582,4 +582,82 @@ func TestBasicAuthUsage(t *testing.T) {
 		Username: "user",
 	}
 	assert.False(authPartial.UseBasicAuth())
+}
+
+func TestCreateHTTPTransport(t *testing.T) {
+	assert := assert.New(t)
+
+	// Test with no TLS config needed
+	clientAuth := config.ClientAuth{}
+	transport, err := createHTTPTransport(clientAuth)
+	assert.Nil(err)
+	assert.NotNil(transport)
+	assert.Nil(transport.TLSClientConfig)
+	assert.False(transport.DisableCompression)
+}
+
+func TestBuildTLSConfig(t *testing.T) {
+	assert := assert.New(t)
+
+	// Test with no CA or client cert
+	clientAuth := config.ClientAuth{}
+	tlsConfig, err := buildTLSConfig(clientAuth)
+	assert.Nil(err)
+	assert.Nil(tlsConfig)
+
+	// Test with CA only
+	clientAuth = config.ClientAuth{
+		CA: "-----BEGIN CERTIFICATE-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA\n-----END CERTIFICATE-----",
+	}
+	tlsConfig, err = buildTLSConfig(clientAuth)
+	assert.NotNil(err) // Will fail because it's not a valid cert, but that's expected
+	assert.Nil(tlsConfig)
+}
+
+func TestLoadCertificateData(t *testing.T) {
+	assert := assert.New(t)
+
+	// Test with PEM content
+	pemData := "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
+	result, err := loadCertificateData(pemData)
+	assert.Nil(err)
+	assert.Equal([]byte(pemData), result)
+
+	// Test with file path (non-existent)
+	_, err = loadCertificateData("/nonexistent/file.pem")
+	assert.NotNil(err)
+}
+
+func TestLoadClientCertificatePair(t *testing.T) {
+	assert := assert.New(t)
+
+	// Test mixed format error
+	certPEM := "-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----"
+	keyFile := "/path/to/key.pem"
+	_, err := loadClientCertificatePair(certPEM, keyFile)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "must both be either file paths or inline PEM content")
+
+	// Test both file paths (non-existent)
+	_, err = loadClientCertificatePair("/cert.pem", "/key.pem")
+	assert.NotNil(err)
+}
+
+func TestBuildHTTPClient(t *testing.T) {
+	assert := assert.New(t)
+
+	transport := &http.Transport{}
+
+	// Test with redirects enabled
+	client := buildHTTPClient(true, 30, transport)
+	assert.NotNil(client)
+	assert.Equal(30*time.Second, client.Timeout)
+	assert.Equal(transport, client.Transport)
+	assert.Nil(client.CheckRedirect)
+
+	// Test with redirects disabled
+	client = buildHTTPClient(false, 60, transport)
+	assert.NotNil(client)
+	assert.Equal(60*time.Second, client.Timeout)
+	assert.NotNil(client.CheckRedirect)
 }

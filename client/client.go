@@ -57,86 +57,135 @@ func CreateRequest(method, url string, body []byte, headers map[string]string, c
 
 // CreateClient will create a new http.Client with basic defaults
 func CreateClient(followRedirects bool, timeout int, clientCert config.ClientAuth) (*http.Client, error) {
-	tr := &http.Transport{
+	transport, err := createHTTPTransport(clientCert)
+	if err != nil {
+		return nil, err
+	}
+
+	return buildHTTPClient(followRedirects, timeout, transport), nil
+}
+
+// createHTTPTransport creates an HTTP transport with TLS configuration
+func createHTTPTransport(clientCert config.ClientAuth) (*http.Transport, error) {
+	transport := &http.Transport{
 		DisableCompression: false,
 	}
 
-	// Initialize TLS config
-	tlsConfig := &tls.Config{}
-
-	// Handle custom CA certificate
-	if strings.TrimSpace(clientCert.CA) != "" {
-		var caCert []byte
-		var err error
-
-		caData := strings.TrimSpace(clientCert.CA)
-
-		// Check if it's direct PEM content (starts with -----BEGIN)
-		if strings.HasPrefix(caData, "-----BEGIN") {
-			// It's direct PEM content
-			caCert = []byte(caData)
-		} else {
-			// It's a file path
-			caCert, err = os.ReadFile(caData)
-			if err != nil {
-				return nil, fmt.Errorf("could not read CA certificate file: %s", err)
-			}
-		}
-
-		caCertPool := x509.NewCertPool()
-		if !caCertPool.AppendCertsFromPEM(caCert) {
-			return nil, fmt.Errorf("failed to parse CA certificate")
-		}
-
-		tlsConfig.RootCAs = caCertPool
-	}
-
-	// Handle client certificate authentication
-	if clientCert.UseAuth() {
-		var cert tls.Certificate
-		var err error
-
-		certData := strings.TrimSpace(clientCert.Cert)
-		keyData := strings.TrimSpace(clientCert.Key)
-
-		// Check if both cert and key are direct PEM content
-		if strings.HasPrefix(certData, "-----BEGIN") && strings.HasPrefix(keyData, "-----BEGIN") {
-			// Both are direct PEM content
-			cert, err = tls.X509KeyPair([]byte(certData), []byte(keyData))
-		} else if !strings.HasPrefix(certData, "-----BEGIN") && !strings.HasPrefix(keyData, "-----BEGIN") {
-			// Both are file paths
-			cert, err = tls.LoadX509KeyPair(certData, keyData)
-		} else {
-			// Mixed format - one is inline, one is file path - this is an error
-			return nil, fmt.Errorf("client certificate and key must both be either file paths or inline PEM content, not mixed")
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("invalid client cert/key: %s", err)
-		}
-
-		tlsConfig.Certificates = []tls.Certificate{cert}
+	tlsConfig, err := buildTLSConfig(clientCert)
+	if err != nil {
+		return nil, err
 	}
 
 	// Only set TLS config if we have either custom CA or client certs
-	if strings.TrimSpace(clientCert.CA) != "" || clientCert.UseAuth() {
-		tr.TLSClientConfig = tlsConfig
+	if tlsConfig != nil {
+		transport.TLSClientConfig = tlsConfig
+	}
+
+	return transport, nil
+}
+
+// buildTLSConfig creates TLS configuration for custom CA and client certificates
+func buildTLSConfig(clientCert config.ClientAuth) (*tls.Config, error) {
+	hasCA := strings.TrimSpace(clientCert.CA) != ""
+	hasClientCert := clientCert.UseAuth()
+
+	if !hasCA && !hasClientCert {
+		return nil, nil // No TLS config needed
+	}
+
+	tlsConfig := &tls.Config{}
+
+	if hasCA {
+		if err := configureCACertificate(tlsConfig, clientCert.CA); err != nil {
+			return nil, err
+		}
+	}
+
+	if hasClientCert {
+		if err := configureClientCertificate(tlsConfig, clientCert); err != nil {
+			return nil, err
+		}
+	}
+
+	return tlsConfig, nil
+}
+
+// configureCACertificate sets up custom CA certificate in TLS config
+func configureCACertificate(tlsConfig *tls.Config, caData string) error {
+	caCert, err := loadCertificateData(caData)
+	if err != nil {
+		return fmt.Errorf("could not read CA certificate: %w", err)
+	}
+
+	caCertPool := x509.NewCertPool()
+	if !caCertPool.AppendCertsFromPEM(caCert) {
+		return fmt.Errorf("failed to parse CA certificate")
+	}
+
+	tlsConfig.RootCAs = caCertPool
+	return nil
+}
+
+// configureClientCertificate sets up client certificate in TLS config
+func configureClientCertificate(tlsConfig *tls.Config, clientCert config.ClientAuth) error {
+	cert, err := loadClientCertificatePair(clientCert.Cert, clientCert.Key)
+	if err != nil {
+		return fmt.Errorf("invalid client cert/key: %w", err)
+	}
+
+	tlsConfig.Certificates = []tls.Certificate{cert}
+	return nil
+}
+
+// loadCertificateData loads certificate data from either inline PEM or file path
+func loadCertificateData(data string) ([]byte, error) {
+	trimmedData := strings.TrimSpace(data)
+
+	// Check if it's direct PEM content (starts with -----BEGIN)
+	if strings.HasPrefix(trimmedData, "-----BEGIN") {
+		return []byte(trimmedData), nil
+	}
+
+	// It's a file path
+	return os.ReadFile(trimmedData)
+}
+
+// loadClientCertificatePair loads a client certificate pair from cert and key data
+func loadClientCertificatePair(certData, keyData string) (tls.Certificate, error) {
+	certTrimmed := strings.TrimSpace(certData)
+	keyTrimmed := strings.TrimSpace(keyData)
+
+	certIsPEM := strings.HasPrefix(certTrimmed, "-----BEGIN")
+	keyIsPEM := strings.HasPrefix(keyTrimmed, "-----BEGIN")
+
+	// Both must be the same format (both PEM or both file paths)
+	if certIsPEM != keyIsPEM {
+		return tls.Certificate{}, fmt.Errorf("client certificate and key must both be either file paths or inline PEM content, not mixed")
+	}
+
+	if certIsPEM {
+		// Both are direct PEM content
+		return tls.X509KeyPair([]byte(certTrimmed), []byte(keyTrimmed))
+	}
+
+	// Both are file paths
+	return tls.LoadX509KeyPair(certTrimmed, keyTrimmed)
+}
+
+// buildHTTPClient creates the final HTTP client with redirect and timeout configuration
+func buildHTTPClient(followRedirects bool, timeout int, transport *http.Transport) *http.Client {
+	client := &http.Client{
+		Timeout:   time.Duration(timeout) * time.Second,
+		Transport: transport,
 	}
 
 	if !followRedirects {
-		return &http.Client{
-			Timeout:   time.Duration(timeout) * time.Second,
-			Transport: tr,
-			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
-				return http.ErrUseLastResponse
-			},
-		}, nil
+		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error {
+			return http.ErrUseLastResponse
+		}
 	}
 
-	return &http.Client{
-		Timeout:   time.Duration(timeout) * time.Second,
-		Transport: tr,
-	}, nil
+	return client
 }
 
 // Creates a ClientAuth object

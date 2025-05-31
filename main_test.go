@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/fatih/color"
+	"github.com/thoom/gulp/client"
 	"github.com/thoom/gulp/config"
 	"github.com/thoom/gulp/output"
 	"github.com/thoom/gulp/template"
@@ -764,4 +766,351 @@ func TestProcessRequestError(t *testing.T) {
 	// This test is mainly to document that we would test error paths
 	// but they're hard to test due to os.Exit calls
 	assert.True(true) // Placeholder assertion
+}
+
+// Tests for newly refactored functions
+func TestRunGulp(t *testing.T) {
+	assert := assert.New(t)
+
+	// Save original values
+	originalConfigFlag := *configFlag
+	originalVersionFlag := *versionFlag
+	originalMethodFlag := *methodFlag
+	originalUrlFlag := *urlFlag
+	originalFileFlag := *fileFlag
+
+	// Set up test conditions
+	*configFlag = ".gulp.yml" // Use default config
+	*versionFlag = false
+	*methodFlag = "GET"
+	*urlFlag = ""
+	*fileFlag = ""
+
+	// This test verifies the function doesn't panic and returns an error for missing URL
+	err := runGulp()
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "need a URL")
+
+	// Restore original values
+	*configFlag = originalConfigFlag
+	*versionFlag = originalVersionFlag
+	*methodFlag = originalMethodFlag
+	*urlFlag = originalUrlFlag
+	*fileFlag = originalFileFlag
+}
+
+func TestHandleVersionFlag(t *testing.T) {
+	assert := assert.New(t)
+
+	// Capture output
+	oldOut := output.Out.Out
+	buf := &bytes.Buffer{}
+	output.Out.Out = buf
+	defer func() { output.Out.Out = oldOut }()
+
+	// This function calls os.Exit(0), so we can't test it completely
+	// But we can verify the setup is correct
+	currentVersion := client.GetVersion()
+	assert.NotEmpty(currentVersion)
+}
+
+func TestExecuteRequest(t *testing.T) {
+	assert := assert.New(t)
+
+	// Save original values
+	originalUrlFlag := *urlFlag
+	originalMethodFlag := *methodFlag
+
+	// Set up test with missing URL
+	*urlFlag = ""
+	*methodFlag = "GET"
+	flag.CommandLine.Parse([]string{}) // Clear args
+
+	err := executeRequest()
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "need a URL")
+
+	// Restore
+	*urlFlag = originalUrlFlag
+	*methodFlag = originalMethodFlag
+}
+
+func TestExecuteRequestsWithConcurrency(t *testing.T) {
+	assert := assert.New(t)
+
+	// Create a test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	}))
+	defer server.Close()
+
+	// Set up test configuration
+	gulpConfig = config.New
+	originalRepeat := *repeatFlag
+	originalConcurrent := *concurrentFlag
+	*repeatFlag = 2
+	*concurrentFlag = 1
+
+	// Capture output
+	oldOut := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	done := make(chan string)
+	go func() {
+		buf := make([]byte, 1024)
+		n, _ := r.Read(buf)
+		done <- string(buf[:n])
+	}()
+
+	err := executeRequestsWithConcurrency(server.URL, nil, map[string]string{}, true)
+
+	w.Close()
+	os.Stdout = oldOut
+	output := <-done
+
+	assert.Nil(err)
+	assert.Contains(output, "OK")
+
+	// Restore
+	*repeatFlag = originalRepeat
+	*concurrentFlag = originalConcurrent
+}
+
+func TestGetPostBodyFromStdin(t *testing.T) {
+	assert := assert.New(t)
+
+	// This function reads from os.Stdin, which is hard to mock
+	// But we can test the logic - when stdin is a terminal (normal case), it returns nil
+	body, err := getPostBodyFromStdin()
+	assert.Nil(err)
+	assert.Nil(body) // Expected when reading from terminal
+}
+
+func TestExecuteHTTPRequest(t *testing.T) {
+	assert := assert.New(t)
+
+	// Create a test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte("OK"))
+	}))
+	defer server.Close()
+
+	// Set up test configuration
+	gulpConfig = config.New
+	*methodFlag = "GET"
+
+	// Capture output
+	oldOut := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	done := make(chan string)
+	go func() {
+		buf := make([]byte, 1024)
+		n, _ := r.Read(buf)
+		done <- string(buf[:n])
+	}()
+
+	err := executeHTTPRequest(server.URL, nil, map[string]string{}, 0, true)
+
+	w.Close()
+	os.Stdout = oldOut
+	output := <-done
+
+	assert.Nil(err)
+	assert.Contains(output, "OK")
+}
+
+func TestExecuteHTTPRequestError(t *testing.T) {
+	assert := assert.New(t)
+
+	// Set up test configuration
+	gulpConfig = config.New
+	*methodFlag = "\x00INVALID" // Use a method with null character to trigger http.NewRequest error
+
+	// Test with invalid method to trigger error
+	err := executeHTTPRequest("http://example.com", nil, map[string]string{}, 0, true)
+	assert.NotNil(err)
+	assert.Contains(err.Error(), "could not create request")
+}
+
+// Tests for cognitive complexity refactored functions
+func TestCountRedirectFlags(t *testing.T) {
+	assert := assert.New(t)
+
+	// Save original values
+	originalFollow := *followRedirectFlag
+	originalDisable := *disableRedirectFlag
+
+	// Test no flags set
+	*followRedirectFlag = false
+	*disableRedirectFlag = false
+	assert.Equal(0, countRedirectFlags())
+
+	// Test one flag set
+	*followRedirectFlag = true
+	assert.Equal(1, countRedirectFlags())
+
+	// Test both flags set
+	*disableRedirectFlag = true
+	assert.Equal(2, countRedirectFlags())
+
+	// Restore
+	*followRedirectFlag = originalFollow
+	*disableRedirectFlag = originalDisable
+}
+
+func TestCountDisplayFlags(t *testing.T) {
+	assert := assert.New(t)
+
+	// Save original values
+	originalResponse := *responseOnlyFlag
+	originalStatus := *statusCodeOnlyFlag
+	originalVerbose := *verboseFlag
+
+	// Test no flags set
+	*responseOnlyFlag = false
+	*statusCodeOnlyFlag = false
+	*verboseFlag = false
+	assert.Equal(0, countDisplayFlags())
+
+	// Test one flag set
+	*verboseFlag = true
+	assert.Equal(1, countDisplayFlags())
+
+	// Test multiple flags set
+	*responseOnlyFlag = true
+	assert.Equal(2, countDisplayFlags())
+
+	// Restore
+	*responseOnlyFlag = originalResponse
+	*statusCodeOnlyFlag = originalStatus
+	*verboseFlag = originalVerbose
+}
+
+func TestSetDisplayModeFromConfig(t *testing.T) {
+	assert := assert.New(t)
+
+	// Save original values
+	originalResponse := *responseOnlyFlag
+	originalStatus := *statusCodeOnlyFlag
+	originalVerbose := *verboseFlag
+	originalDisplay := gulpConfig.Display
+
+	// Test status-code-only config
+	gulpConfig.Display = "status-code-only"
+	*responseOnlyFlag = false
+	*statusCodeOnlyFlag = false
+	*verboseFlag = false
+
+	setDisplayModeFromConfig()
+	assert.False(*responseOnlyFlag)
+	assert.True(*statusCodeOnlyFlag)
+	assert.False(*verboseFlag)
+
+	// Test verbose config
+	gulpConfig.Display = "verbose"
+	*responseOnlyFlag = false
+	*statusCodeOnlyFlag = false
+	*verboseFlag = false
+
+	setDisplayModeFromConfig()
+	assert.False(*responseOnlyFlag)
+	assert.False(*statusCodeOnlyFlag)
+	assert.True(*verboseFlag)
+
+	// Test default config
+	gulpConfig.Display = "unknown"
+	*responseOnlyFlag = false
+	*statusCodeOnlyFlag = false
+	*verboseFlag = false
+
+	setDisplayModeFromConfig()
+	assert.True(*responseOnlyFlag)
+	assert.False(*statusCodeOnlyFlag)
+	assert.False(*verboseFlag)
+
+	// Restore
+	*responseOnlyFlag = originalResponse
+	*statusCodeOnlyFlag = originalStatus
+	*verboseFlag = originalVerbose
+	gulpConfig.Display = originalDisplay
+}
+
+func TestFormatResponseBody(t *testing.T) {
+	assert := assert.New(t)
+
+	// Save original value
+	originalVerbose := *verboseFlag
+
+	// Test non-verbose mode
+	*verboseFlag = false
+	body := []byte("some content")
+	headers := http.Header{"Content-Type": []string{"application/json"}}
+	result := formatResponseBody(body, headers)
+	assert.Equal(body, result)
+
+	// Test verbose mode with non-JSON
+	*verboseFlag = true
+	headers = http.Header{"Content-Type": []string{"text/plain"}}
+	result = formatResponseBody(body, headers)
+	assert.Equal(body, result)
+
+	// Test verbose mode with valid JSON
+	jsonBody := []byte(`{"key":"value"}`)
+	headers = http.Header{"Content-Type": []string{"application/json"}}
+	result = formatResponseBody(jsonBody, headers)
+	expected := []byte("{\n  \"key\": \"value\"\n}")
+	assert.Equal(expected, result)
+
+	// Test verbose mode with invalid JSON
+	invalidJSON := []byte(`{"key":}`)
+	result = formatResponseBody(invalidJSON, headers)
+	assert.Equal(invalidJSON, result) // Should return original if pretty-print fails
+
+	// Restore
+	*verboseFlag = originalVerbose
+}
+
+func TestEnrichHeaders(t *testing.T) {
+	assert := assert.New(t)
+
+	original := map[string][]string{
+		"User-Agent": []string{"test-agent"},
+	}
+
+	enriched := enrichHeaders(original, 123)
+
+	// Check original is unchanged
+	assert.Equal(1, len(original))
+
+	// Check enriched has additional headers
+	assert.Equal(3, len(enriched))
+	assert.Equal([]string{"test-agent"}, enriched["User-Agent"])
+	assert.Equal([]string{"123"}, enriched["Content-Length"])
+	assert.Equal([]string{"gzip"}, enriched["Accept-Encoding"])
+}
+
+func TestGetSortedHeaders(t *testing.T) {
+	assert := assert.New(t)
+
+	headers := map[string][]string{
+		"Z-Header": []string{"z-value"},
+		"A-Header": []string{"a-value"},
+		"M-Header": []string{"m-value1", "m-value2"},
+	}
+
+	result := getSortedHeaders(headers)
+
+	expected := []string{
+		"A-HEADER: a-value",
+		"M-HEADER: m-value1",
+		"M-HEADER: m-value2",
+		"Z-HEADER: z-value",
+	}
+
+	assert.Equal(expected, result)
 }

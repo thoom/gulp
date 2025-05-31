@@ -188,3 +188,35 @@ client_auth:
 	assert.Equal("testpass", config.ClientAuth.Password)
 	assert.True(config.ClientAuth.UseBasicAuth())
 }
+
+func TestBuildConfigurationError(t *testing.T) {
+	assert := assert.New(t)
+
+	err := buildConfigurationError("test.yml", fmt.Errorf("invalid YAML"))
+	assert.Contains(err.Error(), "could not parse configuration file 'test.yml'")
+	assert.Contains(err.Error(), "invalid YAML")
+	assert.Contains(err.Error(), "Example of valid YAML configuration")
+	assert.Contains(err.Error(), "github.com/thoom/gulp#configuration")
+}
+
+func TestCleanupConfigurationFields(t *testing.T) {
+	assert := assert.New(t)
+
+	config := &Config{
+		ClientAuth: ClientAuth{
+			Cert:     "  /path/to/cert.pem  ",
+			Key:      "\t/path/to/key.pem\t",
+			CA:       " /path/to/ca.pem ",
+			Username: "  user  ",
+			Password: "  pass  ",
+		},
+	}
+
+	cleanupConfigurationFields(config)
+
+	assert.Equal("/path/to/cert.pem", config.ClientAuth.Cert)
+	assert.Equal("/path/to/key.pem", config.ClientAuth.Key)
+	assert.Equal("/path/to/ca.pem", config.ClientAuth.CA)
+	assert.Equal("user", config.ClientAuth.Username)
+	assert.Equal("pass", config.ClientAuth.Password)
+}

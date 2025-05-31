@@ -16,3 +16,6 @@
 .gulp.yml
 *_test.*
 gulp
+
+coverage.txt
+coverage.html

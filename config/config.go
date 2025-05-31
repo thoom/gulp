@@ -110,7 +110,18 @@ func LoadConfiguration(fileName string) (*Config, error) {
 
 	var gulpConfig *Config
 	if err := yaml.Unmarshal(dat, &gulpConfig); err != nil {
-		return nil, fmt.Errorf(`could not parse configuration file '%s': %v
+		return nil, buildConfigurationError(fileName, err)
+	}
+
+	// Clean up field padding
+	cleanupConfigurationFields(gulpConfig)
+
+	return gulpConfig, nil
+}
+
+// buildConfigurationError creates a detailed error message with examples
+func buildConfigurationError(fileName string, parseErr error) error {
+	return fmt.Errorf(`could not parse configuration file '%s': %v
 
 Example of valid YAML configuration:
 ---
@@ -144,32 +155,15 @@ flags:
 display: verbose  # or "status-code-only"
 ---
 
-For more examples, see: https://github.com/thoom/gulp#configuration`, fileName, err)
-	}
+For more examples, see: https://github.com/thoom/gulp#configuration`, fileName, parseErr)
+}
 
-	// Clean up spaced padding
-	if gulpConfig.ClientAuth.Cert != "" {
-		gulpConfig.ClientAuth.Cert = strings.TrimSpace(gulpConfig.ClientAuth.Cert)
-	}
-
-	// Clean up spaced padding
-	if gulpConfig.ClientAuth.Key != "" {
-		gulpConfig.ClientAuth.Key = strings.TrimSpace(gulpConfig.ClientAuth.Key)
-	}
-
-	// Clean up spaced padding
-	if gulpConfig.ClientAuth.CA != "" {
-		gulpConfig.ClientAuth.CA = strings.TrimSpace(gulpConfig.ClientAuth.CA)
-	}
-
-	// Clean up spaced padding for basic auth
-	if gulpConfig.ClientAuth.Username != "" {
-		gulpConfig.ClientAuth.Username = strings.TrimSpace(gulpConfig.ClientAuth.Username)
-	}
-
-	if gulpConfig.ClientAuth.Password != "" {
-		gulpConfig.ClientAuth.Password = strings.TrimSpace(gulpConfig.ClientAuth.Password)
-	}
-
-	return gulpConfig, nil
+// cleanupConfigurationFields trims whitespace from all string fields in the configuration
+func cleanupConfigurationFields(config *Config) {
+	// Clean up client auth fields
+	config.ClientAuth.Cert = strings.TrimSpace(config.ClientAuth.Cert)
+	config.ClientAuth.Key = strings.TrimSpace(config.ClientAuth.Key)
+	config.ClientAuth.CA = strings.TrimSpace(config.ClientAuth.CA)
+	config.ClientAuth.Username = strings.TrimSpace(config.ClientAuth.Username)
+	config.ClientAuth.Password = strings.TrimSpace(config.ClientAuth.Password)
 }

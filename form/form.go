@@ -31,29 +31,40 @@ func ParseFormData(data []byte) (*FormData, error) {
 			continue
 		}
 
-		// Check if it's a file upload (format: field@filepath)
-		if strings.Contains(line, "@") {
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) == 2 {
-				key := parts[0]
-				value := parts[1]
-				if strings.HasPrefix(value, "@") {
-					// File upload
-					filePath := strings.TrimPrefix(value, "@")
-					form.Files[key] = filePath
-					continue
-				}
-			}
-		}
-
-		// Regular field (format: key=value)
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) == 2 {
-			form.Fields[parts[0]] = parts[1]
+		if err := parseFormLine(form, line); err != nil {
+			return nil, err
 		}
 	}
 
 	return form, nil
+}
+
+// parseFormLine parses a single form line and adds it to the appropriate collection
+func parseFormLine(form *FormData, line string) error {
+	// Split into key=value format
+	parts := strings.SplitN(line, "=", 2)
+	if len(parts) != 2 {
+		return nil // Skip malformed lines
+	}
+
+	key := parts[0]
+	value := parts[1]
+
+	// Check if it's a file upload (value starts with @)
+	if isFileUpload(value) {
+		filePath := strings.TrimPrefix(value, "@")
+		form.Files[key] = filePath
+	} else {
+		// Regular field
+		form.Fields[key] = value
+	}
+
+	return nil
+}
+
+// isFileUpload determines if a value represents a file upload
+func isFileUpload(value string) bool {
+	return strings.HasPrefix(value, "@")
 }
 
 // ToURLEncoded converts form data to application/x-www-form-urlencoded format

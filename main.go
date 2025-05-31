@@ -70,10 +70,17 @@ func main() {
 	flag.Var(&templateVarFlag, "var", "Set a template `variable` in the format key=value for use in Go templates")
 	flag.Parse()
 
+	if err := runGulp(); err != nil {
+		output.ExitErr("", err)
+	}
+}
+
+// runGulp contains the main application logic, extracted for testability
+func runGulp() error {
 	// Load the custom configuration
 	loadedConfig, err := config.LoadConfiguration(*configFlag)
 	if err != nil {
-		output.ExitErr("", err)
+		return err
 	}
 
 	// Set the main config to the one that was loaded
@@ -86,31 +93,42 @@ func main() {
 	filterDisplayFlags()
 
 	if *versionFlag {
-		// Check for updates with a 3-second timeout
-		currentVersion := client.GetVersion()
-		updateInfo, err := client.CheckForUpdates(currentVersion, 3*time.Second)
-
-		if err != nil {
-			// If update check fails, just show the version without update info
-			output.Out.PrintVersion(currentVersion)
-			if *verboseFlag {
-				output.Out.PrintWarning(fmt.Sprintf("Could not check for updates: %s", err))
-			}
-		} else {
-			// Show version with update information
-			output.Out.PrintVersionWithUpdates(
-				currentVersion,
-				updateInfo.HasUpdate,
-				updateInfo.LatestVersion,
-				updateInfo.UpdateURL,
-			)
-		}
-		os.Exit(0)
+		return handleVersionFlag()
 	}
 
+	return executeRequest()
+}
+
+// handleVersionFlag handles the version flag display and update checking
+func handleVersionFlag() error {
+	// Check for updates with a 3-second timeout
+	currentVersion := client.GetVersion()
+	updateInfo, err := client.CheckForUpdates(currentVersion, 3*time.Second)
+
+	if err != nil {
+		// If update check fails, just show the version without update info
+		output.Out.PrintVersion(currentVersion)
+		if *verboseFlag {
+			output.Out.PrintWarning(fmt.Sprintf("Could not check for updates: %s", err))
+		}
+	} else {
+		// Show version with update information
+		output.Out.PrintVersionWithUpdates(
+			currentVersion,
+			updateInfo.HasUpdate,
+			updateInfo.LatestVersion,
+			updateInfo.UpdateURL,
+		)
+	}
+	os.Exit(0)
+	return nil // This line won't be reached but makes the function signature consistent
+}
+
+// executeRequest handles the HTTP request execution logic
+func executeRequest() error {
 	url, err := client.BuildURL(getPath(*urlFlag, flag.Args()), gulpConfig.URL)
 	if err != nil {
-		output.ExitErr("", err)
+		return err
 	}
 
 	// Don't check the TLS bro
@@ -126,14 +144,14 @@ func main() {
 		var err error
 		body, err = getPostBody()
 		if err != nil {
-			output.ExitErr("", err)
+			return err
 		}
 
 		// Process form data if form flag is set
 		if *formFlag && body != nil {
 			body, formContentType, err = form.ProcessFormData(body)
 			if err != nil {
-				output.ExitErr("", err)
+				return err
 			}
 		}
 	}
@@ -141,7 +159,7 @@ func main() {
 	// Build request headers
 	headers, err := client.BuildHeaders(reqHeaders, gulpConfig.Headers, body != nil)
 	if err != nil {
-		output.ExitErr("", err)
+		return err
 	}
 
 	// Set form content type if processing form data
@@ -151,10 +169,15 @@ func main() {
 		// Convert the YAML/JSON body if necessary (only when not in form mode)
 		body, err = convertJSONBody(body, headers)
 		if err != nil {
-			output.ExitErr("", err)
+			return err
 		}
 	}
 
+	return executeRequestsWithConcurrency(url, body, headers, followRedirect)
+}
+
+// executeRequestsWithConcurrency handles the concurrent request execution
+func executeRequestsWithConcurrency(url string, body []byte, headers map[string]string, followRedirect bool) error {
 	maxChan := make(chan bool, *concurrentFlag)
 	var wg sync.WaitGroup
 	for i := 0; i < *repeatFlag; i++ {
@@ -170,6 +193,7 @@ func main() {
 		}(i, maxChan, &wg)
 	}
 	wg.Wait()
+	return nil
 }
 
 func getPath(urlFlag string, args []string) string {
@@ -182,6 +206,13 @@ func getPath(urlFlag string, args []string) string {
 }
 
 func processRequest(url string, body []byte, headers map[string]string, iteration int, followRedirect bool) {
+	if err := executeHTTPRequest(url, body, headers, iteration, followRedirect); err != nil {
+		output.ExitErr("", err)
+	}
+}
+
+// executeHTTPRequest performs the actual HTTP request - extracted for testability
+func executeHTTPRequest(url string, body []byte, headers map[string]string, iteration int, followRedirect bool) error {
 	var startTimer time.Time
 
 	// Build client auth configuration
@@ -189,7 +220,7 @@ func processRequest(url string, body []byte, headers map[string]string, iteratio
 
 	req, err := client.CreateRequest(*methodFlag, url, body, headers, clientAuth)
 	if err != nil {
-		output.ExitErr("", err)
+		return fmt.Errorf("could not create request: %w", err)
 	}
 
 	b := &bytes.Buffer{}
@@ -199,59 +230,103 @@ func processRequest(url string, body []byte, headers map[string]string, iteratio
 	startTimer = time.Now()
 	reqClient, err := client.CreateClient(followRedirect, calculateTimeout(), clientAuth)
 	if err != nil {
-		output.ExitErr("Could not create client: ", err)
+		return fmt.Errorf("could not create client: %w", err)
 	}
 
 	resp, err := reqClient.Do(req)
 	if err != nil {
-		output.ExitErr("Something unexpected happened", err)
+		return fmt.Errorf("request failed: %w", err)
 	}
 
 	// If we got a request, output what was created
 	printRequest(iteration, url, resp.Request.Header, req.ContentLength, req.Proto, bo)
 	handleResponse(resp, time.Since(startTimer).Seconds(), bo)
+	return nil
 }
 
 func printRequest(iteration int, url string, headers map[string][]string, contentLength int64, protocol string, bo *output.BuffOut) {
 	if !*verboseFlag {
-		if iteration > 0 {
-			fmt.Fprintf(bo.Out, "%d: ", iteration)
-		}
+		printIterationPrefix(iteration, bo)
 		return
 	}
 
+	printIterationHeader(iteration, bo)
+
+	if len(headers) == 0 {
+		bo.PrintHeader(fmt.Sprintf("%s %s", *methodFlag, url))
+		return
+	}
+
+	requestInfo := buildRequestInfo(url, protocol, headers, contentLength)
+	bo.PrintBlock(requestInfo)
+	fmt.Fprintln(bo.Out)
+}
+
+// printIterationPrefix prints the iteration number for non-verbose mode
+func printIterationPrefix(iteration int, bo *output.BuffOut) {
+	if iteration > 0 {
+		fmt.Fprintf(bo.Out, "%d: ", iteration)
+	}
+}
+
+// printIterationHeader prints the iteration header for verbose mode
+func printIterationHeader(iteration int, bo *output.BuffOut) {
 	if iteration > 0 {
 		bo.PrintHeader(fmt.Sprintf("Iteration #%d", iteration))
 	}
+}
 
-	urlHeader := fmt.Sprintf("%s %s", *methodFlag, url)
-	if len(headers) == 0 {
-		bo.PrintHeader(urlHeader)
-		return
+// buildRequestInfo builds the complete request info block with headers
+func buildRequestInfo(url, protocol string, headers map[string][]string, contentLength int64) string {
+	// Add standard headers that aren't automatically included
+	enrichedHeaders := enrichHeaders(headers, contentLength)
+
+	// Build the info block
+	block := []string{
+		fmt.Sprintf("%s %s", *methodFlag, url),
+		"PROTOCOL: " + protocol,
 	}
 
-	//Gross hacks bc I can't figure out how to pull these headers automatically
-	headers["Content-Length"] = []string{strconv.FormatInt(contentLength, 10)}
-	headers["Accept-Encoding"] = []string{"gzip"}
+	// Add sorted headers
+	sortedHeaders := getSortedHeaders(enrichedHeaders)
+	for _, headerLine := range sortedHeaders {
+		block = append(block, headerLine)
+	}
 
-	block := []string{urlHeader}
-	block = append(block, "PROTOCOL: "+protocol)
+	return strings.Join(block, "\n")
+}
 
-	mk := make([]string, len(headers))
-	i := 0
+// enrichHeaders adds standard headers that may be missing from the request
+func enrichHeaders(headers map[string][]string, contentLength int64) map[string][]string {
+	// Create a copy to avoid modifying the original
+	enriched := make(map[string][]string)
+	for k, v := range headers {
+		enriched[k] = v
+	}
+
+	// Add headers that aren't automatically captured
+	enriched["Content-Length"] = []string{strconv.FormatInt(contentLength, 10)}
+	enriched["Accept-Encoding"] = []string{"gzip"}
+
+	return enriched
+}
+
+// getSortedHeaders returns header lines sorted alphabetically
+func getSortedHeaders(headers map[string][]string) []string {
+	headerKeys := make([]string, 0, len(headers))
 	for k := range headers {
-		mk[i] = k
-		i++
+		headerKeys = append(headerKeys, k)
 	}
-	sort.Strings(mk)
+	sort.Strings(headerKeys)
 
-	for _, k := range mk {
-		for _, kk := range headers[k] {
-			block = append(block, strings.ToUpper(k)+": "+kk)
+	var headerLines []string
+	for _, k := range headerKeys {
+		for _, v := range headers[k] {
+			headerLines = append(headerLines, strings.ToUpper(k)+": "+v)
 		}
 	}
-	bo.PrintBlock(strings.Join(block, "\n"))
-	fmt.Fprintln(bo.Out)
+
+	return headerLines
 }
 
 func handleResponse(resp *http.Response, duration float64, bo *output.BuffOut) {
@@ -265,40 +340,47 @@ func handleResponse(resp *http.Response, duration float64, bo *output.BuffOut) {
 
 	if *verboseFlag {
 		bo.PrintStoplight(fmt.Sprintf("Status: %s (%.2f seconds)\n", resp.Status, duration), resp.StatusCode >= 400)
-	}
-
-	isJSON := false
-	mk := make([]string, len(resp.Header))
-	i := 0
-	for k := range resp.Header {
-		mk[i] = k
-		i++
-	}
-	sort.Strings(mk)
-
-	for _, k := range mk {
-		if k == "Content-Type" && strings.Contains(resp.Header.Get(k), "json") {
-			isJSON = true
-		}
-		if *verboseFlag {
-			fmt.Fprintln(bo.Out, strings.ToUpper(k)+": "+resp.Header.Get(k))
-		}
-	}
-
-	if *verboseFlag {
+		printResponseHeaders(resp.Header, bo)
 		fmt.Fprintln(bo.Out, "")
 	}
 
-	if isJSON && *verboseFlag {
-		var prettyJSON bytes.Buffer
-		err := json.Indent(&prettyJSON, body, "", "  ")
-		if err == nil {
-			// Don't worry about pretty-printing if we got an error
-			body = prettyJSON.Bytes()
-		}
+	formattedBody := formatResponseBody(body, resp.Header)
+	fmt.Fprintln(bo.Out, string(formattedBody))
+}
+
+// printResponseHeaders prints response headers in sorted order
+func printResponseHeaders(headers http.Header, bo *output.BuffOut) {
+	headerKeys := make([]string, 0, len(headers))
+	for k := range headers {
+		headerKeys = append(headerKeys, k)
+	}
+	sort.Strings(headerKeys)
+
+	for _, k := range headerKeys {
+		fmt.Fprintln(bo.Out, strings.ToUpper(k)+": "+headers.Get(k))
+	}
+}
+
+// formatResponseBody formats the response body, applying JSON pretty-printing if applicable
+func formatResponseBody(body []byte, headers http.Header) []byte {
+	if !*verboseFlag {
+		return body
 	}
 
-	fmt.Fprintln(bo.Out, string(body))
+	// Check if content is JSON
+	contentType := headers.Get("Content-Type")
+	if !strings.Contains(contentType, "json") {
+		return body
+	}
+
+	// Try to pretty-print JSON
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, body, "", "  "); err == nil {
+		return prettyJSON.Bytes()
+	}
+
+	// Return original if pretty-printing failed
+	return body
 }
 
 func getPostBody() ([]byte, error) {
@@ -310,35 +392,45 @@ func getPostBody() ([]byte, error) {
 	}
 
 	// Handle stdin (existing behavior)
+	return getPostBodyFromStdin()
+}
+
+// getPostBodyFromStdin handles reading from stdin - extracted for better testability
+func getPostBodyFromStdin() ([]byte, error) {
 	stat, _ := os.Stdin.Stat()
 
 	if (stat.Mode() & os.ModeCharDevice) == 0 {
-		scanner := bufio.NewScanner(os.Stdin)
-		var stdin []byte
-		first := true
-		for scanner.Scan() {
-			if first {
-				first = false
-			} else {
-				stdin = append(stdin, []byte("\n")...)
-			}
-
-			stdin = append(stdin, scanner.Bytes()...)
-		}
-
-		if err := scanner.Err(); err != nil {
-			return nil, fmt.Errorf("reading standard input: %s", err)
-		}
-
-		// If template variables are provided, process stdin as a template
-		if len(templateVarFlag) > 0 {
-			return template.ProcessStdin(stdin, templateVarFlag)
-		}
-
-		return stdin, nil
+		return readAndProcessStdin()
 	}
 
 	return nil, nil
+}
+
+// readAndProcessStdin reads from stdin and optionally processes it as a template
+func readAndProcessStdin() ([]byte, error) {
+	scanner := bufio.NewScanner(os.Stdin)
+	var stdin []byte
+	first := true
+	for scanner.Scan() {
+		if first {
+			first = false
+		} else {
+			stdin = append(stdin, []byte("\n")...)
+		}
+
+		stdin = append(stdin, scanner.Bytes()...)
+	}
+
+	if err := scanner.Err(); err != nil {
+		return nil, fmt.Errorf("reading standard input: %s", err)
+	}
+
+	// If template variables are provided, process stdin as a template
+	if len(templateVarFlag) > 0 {
+		return template.ProcessStdin(stdin, templateVarFlag)
+	}
+
+	return stdin, nil
 }
 
 func convertJSONBody(body []byte, headers map[string]string) ([]byte, error) {
@@ -384,92 +476,127 @@ func calculateTimeout() int {
 }
 
 func shouldFollowRedirects() bool {
-	redirectFlags := 0
-	if *disableRedirectFlag {
-		redirectFlags++
-	}
+	flagCount := countRedirectFlags()
 
-	if *followRedirectFlag {
-		redirectFlags++
-	}
-
-	// If we don't have either flag set, use the config
-	if redirectFlags == 0 {
+	// No redirect flags set - use config
+	if flagCount == 0 {
 		return gulpConfig.FollowRedirects()
 	}
 
-	// If only one of the flags is set, use the flag passed
-	if redirectFlags > 1 {
-		totalArgs := len(os.Args[1:])
-		*disableRedirectFlag = false
-		*followRedirectFlag = false
-		for i := totalArgs; i > 0; i-- {
-			switch os.Args[i] {
-			case "-no-redirect":
-				*disableRedirectFlag = true
-			case "-follow-redirect":
-				*followRedirectFlag = true
-			default:
-				continue
-			}
-			break
-		}
+	// Only one flag set - use it directly
+	if flagCount == 1 {
+		return *followRedirectFlag
 	}
 
-	if *disableRedirectFlag {
-		return false
-	}
-	return true
+	// Multiple flags set - use the last one specified
+	return getLastRedirectFlagFromArgs()
 }
 
-func filterDisplayFlags() {
-	displayFlags := 0
-	if *responseOnlyFlag {
-		displayFlags++
+// countRedirectFlags returns how many redirect-related flags are set
+func countRedirectFlags() int {
+	count := 0
+	if *disableRedirectFlag {
+		count++
 	}
-
-	if *statusCodeOnlyFlag {
-		displayFlags++
+	if *followRedirectFlag {
+		count++
 	}
+	return count
+}
 
-	if *verboseFlag {
-		displayFlags++
-	}
-
-	// If only one was set then we can just return
-	if displayFlags == 1 {
-		return
-	}
-
-	// If none were set, then use the configuration loaded
-	if displayFlags == 0 {
-		switch gulpConfig.Display {
-		case "status-code-only":
-			*statusCodeOnlyFlag = true
-		case "verbose":
-			*verboseFlag = true
-		default:
-			*responseOnlyFlag = true
-		}
-		return
-	}
-
-	// If multiple were set, then we need to figure out which one was the last one set and use that instead
+// getLastRedirectFlagFromArgs parses command line args to find the last redirect flag
+func getLastRedirectFlagFromArgs() bool {
 	totalArgs := len(os.Args[1:])
+	*disableRedirectFlag = false
+	*followRedirectFlag = false
+
+	for i := totalArgs; i > 0; i-- {
+		switch os.Args[i] {
+		case "-no-redirect":
+			*disableRedirectFlag = true
+			return false
+		case "-follow-redirect":
+			*followRedirectFlag = true
+			return true
+		}
+	}
+
+	// Fallback (shouldn't reach here if count was correct)
+	return *followRedirectFlag
+}
+
+type DisplayMode int
+
+const (
+	DisplayResponseOnly DisplayMode = iota
+	DisplayStatusCode
+	DisplayVerbose
+)
+
+func filterDisplayFlags() {
+	flagCount := countDisplayFlags()
+
+	// No display flags set - use config
+	if flagCount == 0 {
+		setDisplayModeFromConfig()
+		return
+	}
+
+	// Only one flag set - already correct
+	if flagCount == 1 {
+		return
+	}
+
+	// Multiple flags set - use the last one specified
+	setDisplayModeFromLastArg()
+}
+
+// countDisplayFlags returns how many display-related flags are set
+func countDisplayFlags() int {
+	count := 0
+	if *responseOnlyFlag {
+		count++
+	}
+	if *statusCodeOnlyFlag {
+		count++
+	}
+	if *verboseFlag {
+		count++
+	}
+	return count
+}
+
+// setDisplayModeFromConfig sets the display mode based on configuration
+func setDisplayModeFromConfig() {
+	switch gulpConfig.Display {
+	case "status-code-only":
+		*statusCodeOnlyFlag = true
+	case "verbose":
+		*verboseFlag = true
+	default:
+		*responseOnlyFlag = true
+	}
+}
+
+// setDisplayModeFromLastArg finds the last display flag in args and sets only that one
+func setDisplayModeFromLastArg() {
+	// Reset all flags first
 	*responseOnlyFlag = false
 	*statusCodeOnlyFlag = false
 	*verboseFlag = false
+
+	totalArgs := len(os.Args[1:])
 	for i := totalArgs; i > 0; i-- {
 		switch os.Args[i] {
 		case "-ro":
 			*responseOnlyFlag = true
+			return
 		case "-sco":
 			*statusCodeOnlyFlag = true
+			return
 		case "-v":
 			*verboseFlag = true
-		default:
-			continue
+			return
 		}
-		break
 	}
 }
