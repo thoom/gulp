@@ -99,15 +99,20 @@ func (f *FormData) ToMultipart() ([]byte, string, error) {
 		if err != nil {
 			return nil, "", fmt.Errorf("failed to open file %s: %v", filePath, err)
 		}
-		defer file.Close()
 
 		part, err := writer.CreateFormFile(fieldName, filepath.Base(filePath))
 		if err != nil {
+			file.Close() // Ensure file is closed before returning
 			return nil, "", fmt.Errorf("failed to create form file for %s: %v", fieldName, err)
 		}
 
 		if _, err := io.Copy(part, file); err != nil {
+			file.Close() // Ensure file is closed before returning
 			return nil, "", fmt.Errorf("failed to copy file %s: %v", filePath, err)
+		}
+
+		if err := file.Close(); err != nil {
+			return nil, "", fmt.Errorf("failed to close file %s: %v", filePath, err)
 		}
 	}
 
