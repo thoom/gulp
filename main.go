@@ -131,49 +131,77 @@ func executeRequest() error {
 		return err
 	}
 
-	// Don't check the TLS bro
+	// Configure TLS and redirects
 	disableTLSVerify()
-
-	// If the disableRedirectFlag is false and follow redirects is false, then set the flag to true
 	followRedirect := shouldFollowRedirects()
 
-	var body []byte
-	var formContentType string
-	// Don't get the post body if it's a GET/HEAD request
-	if *methodFlag != "GET" && *methodFlag != "HEAD" {
-		var err error
-		body, err = getPostBody()
-		if err != nil {
-			return err
-		}
-
-		// Process form data if form flag is set
-		if *formFlag && body != nil {
-			body, formContentType, err = form.ProcessFormData(body)
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	// Build request headers
-	headers, err := client.BuildHeaders(reqHeaders, gulpConfig.Headers, body != nil)
+	// Process request body and headers
+	body, headers, err := processRequestBodyAndHeaders()
 	if err != nil {
 		return err
 	}
 
+	return executeRequestsWithConcurrency(url, body, headers, followRedirect)
+}
+
+// processRequestBodyAndHeaders handles complete body and header processing
+func processRequestBodyAndHeaders() ([]byte, map[string]string, error) {
+	// Process request body
+	body, formContentType, err := processRequestBody()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Build basic headers
+	headers, err := client.BuildHeaders(reqHeaders, gulpConfig.Headers, body != nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	// Configure content type and convert body if needed
+	finalBody, err := configureContentTypeAndConvertBody(headers, body, formContentType)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return finalBody, headers, nil
+}
+
+// processRequestBody handles body processing for non-GET/HEAD requests
+func processRequestBody() ([]byte, string, error) {
+	// Don't get the post body if it's a GET/HEAD request
+	if *methodFlag == "GET" || *methodFlag == "HEAD" {
+		return nil, "", nil
+	}
+
+	body, err := getPostBody()
+	if err != nil {
+		return nil, "", err
+	}
+
+	// Process form data if form flag is set
+	if *formFlag && body != nil {
+		processedBody, contentType, err := form.ProcessFormData(body)
+		return processedBody, contentType, err
+	}
+
+	return body, "", nil
+}
+
+// configureContentTypeAndConvertBody sets content type and converts body as needed
+func configureContentTypeAndConvertBody(headers map[string]string, body []byte, formContentType string) ([]byte, error) {
 	// Set form content type if processing form data
 	if *formFlag && formContentType != "" {
 		headers["CONTENT-TYPE"] = formContentType
-	} else if !*formFlag {
-		// Convert the YAML/JSON body if necessary (only when not in form mode)
-		body, err = convertJSONBody(body, headers)
-		if err != nil {
-			return err
-		}
+		return body, nil
 	}
 
-	return executeRequestsWithConcurrency(url, body, headers, followRedirect)
+	// Convert the YAML/JSON body if necessary (only when not in form mode)
+	if !*formFlag {
+		return convertJSONBody(body, headers)
+	}
+
+	return body, nil
 }
 
 // executeRequestsWithConcurrency handles the concurrent request execution

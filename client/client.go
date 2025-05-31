@@ -17,6 +17,9 @@ import (
 
 var buildVersion string
 
+// PEM header prefix constant
+const pemHeaderPrefix = "-----BEGIN"
+
 // DisableTLSVerification disables TLS verification
 func DisableTLSVerification() {
 	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
@@ -142,7 +145,7 @@ func loadCertificateData(data string) ([]byte, error) {
 	trimmedData := strings.TrimSpace(data)
 
 	// Check if it's direct PEM content (starts with -----BEGIN)
-	if strings.HasPrefix(trimmedData, "-----BEGIN") {
+	if strings.HasPrefix(trimmedData, pemHeaderPrefix) {
 		return []byte(trimmedData), nil
 	}
 
@@ -155,8 +158,8 @@ func loadClientCertificatePair(certData, keyData string) (tls.Certificate, error
 	certTrimmed := strings.TrimSpace(certData)
 	keyTrimmed := strings.TrimSpace(keyData)
 
-	certIsPEM := strings.HasPrefix(certTrimmed, "-----BEGIN")
-	keyIsPEM := strings.HasPrefix(keyTrimmed, "-----BEGIN")
+	certIsPEM := strings.HasPrefix(certTrimmed, pemHeaderPrefix)
+	keyIsPEM := strings.HasPrefix(keyTrimmed, pemHeaderPrefix)
 
 	// Both must be the same format (both PEM or both file paths)
 	if certIsPEM != keyIsPEM {
