@@ -113,6 +113,8 @@ If both are empty, then an error is returned.
         If using client cert auth, the cert to use. MUST be paired with -client-cert-key flag
   -client-cert-key string
         If using client cert auth, the key to use. MUST be paired with -client-cert flag
+  -custom-ca string
+        If using a custom CA certificate, the CA cert file to use for verification
   -follow-redirect
         Enables following 3XX redirects (default)
   -insecure
@@ -164,8 +166,9 @@ Use the `-c` argument to load a different configuration file.
 	Defaults to 300 seconds. Can be overridden by the `-timeout` cli argument.
 
 * __client_auth__: The file and key to use with client cert requests.
-  * __cert__: The PEM-encoded file to use as cert
-  * __key__:  The PEM-encoded file to use as private key
+  * __cert__: The PEM-encoded file path or inline PEM content for the client certificate
+  * __key__:  The PEM-encoded file path or inline PEM content for the private key
+  * __ca__:   The PEM-encoded CA certificate file path or inline PEM content for custom certificate verification
 
 * __flags__: Options that are enabled by default and can be disabled:
   * __follow_redirects__: Follow `3XX` HTTP redirects. 
@@ -220,7 +223,7 @@ There are 2 command line flags that can be used as a poor-man's load testing/thr
  For example, if you ran `gulp -repeat-times 100 -repeat-concurrent 10 /some/api`, 
  the CLI would make 100 total requests with a concurrency of 10 calls at a time (so it would average about 10 calls per thread).
 
- ## Client Cert Authentication
+## Client Cert Authentication
 
 Some APIs use client cert authentication as part of the request. If you need to use client cert authentication, there are two required
 flags (or equivalent config file options).
@@ -228,22 +231,113 @@ flags (or equivalent config file options).
 * __-client-cert__: This is the location of the PEM-encoded certificate file
 * __-client-cert-key__: This is the location of the private key file used to create the certificate
 
+**Using file paths:**
+
 So if you had the files in `/etc/certs/client-cert.pem` and `/etc/certs/client-cert-key.pem` respectively, your request would be:
 
 ```
 gulp -client-cert "/etc/certs/client-cert.pem" -client-cert-key "/etc/certs/client-cert-key.pem" https://api.ex.io/some-resource
 ```
 
+**Using inline PEM content in configuration file:**
+
+```yaml
+# .gulp.yml
+url: https://api.ex.io
+client_auth:
+  cert: |
+    -----BEGIN CERTIFICATE-----
+    MIIDXTCCAkWgAwIBAgIJAKoK/heBjcOuMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
+    BAYTAkFVMRMwEQYDVQQIDApTb21lLVN0YXRlMSEwHwYDVQQKDBhJbnRlcm5ldCBX
+    ...
+    -----END CERTIFICATE-----
+  key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC+mdo8osgl2/H3
+    wpbryXPykZpFFxh6uw0ao+OmJ8xWOMTwu4KheAkkxtDQJ7KKdvx98KW68lz8pGaR
+    ...
+    -----END PRIVATE KEY-----
+```
+
+**Or using file paths in configuration:**
+
+```yaml
+# .gulp.yml
+url: https://api.ex.io
+client_auth:
+  cert: /etc/certs/client-cert.pem
+  key: /etc/certs/client-cert-key.pem
+```
+
 _Note: GULP must have read access to the files in order to pass them to the HTTP client. This may mean mapping their location in Docker:_ 
 
 ```
-docker run --rm -it -v $PWD:/gulp -v /etc/certs:/certs ghcr.io/thoom/gulp -client-cert "/certs/client-cert.pem" -client-cert-key "/certs/client-cert-key.pem" https://api.ex.io/some-resource
+docker run --rm -it -v $PWD:/gulp -v /etc/certs:/certs ghcr.io/thoom/gulp -client-cert "/certs/client-cert.pem" -client-cert-key "/certs/client-cert-key.pem" -custom-ca "/certs/ca.pem" https://api.ex.io/some-resource
 ```
- 
- ## Library Dependencies
+
+## Custom CA Certificate
+
+If your server uses a custom or self-signed certificate authority, you can specify the CA certificate using the `-custom-ca` flag or the `ca` field in the configuration file.
+
+**Using a file path:**
+
+```
+gulp -custom-ca "/etc/certs/ca.pem" https://api.ex.io/some-resource
+```
+
+**Using inline PEM content in configuration file:**
+
+```yaml
+# .gulp.yml
+url: https://api.ex.io
+client_auth:
+  ca: |
+    -----BEGIN CERTIFICATE-----
+    MIIDXTCCAkWgAwIBAgIJAKoK/heBjcOuMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
+    ...
+    -----END CERTIFICATE-----
+```
+
+**Or using a file path in configuration:**
+
+```yaml
+# .gulp.yml
+url: https://api.ex.io
+client_auth:
+  ca: /etc/certs/ca.pem
+```
+
+**Complete example with client cert, key, and custom CA using inline PEM:**
+
+```yaml
+# .gulp.yml
+url: https://api.ex.io
+client_auth:
+  cert: |
+    -----BEGIN CERTIFICATE-----
+    MIIDXTCCAkWgAwIBAgIJAKoK/heBjcOuMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
+    ...
+    -----END CERTIFICATE-----
+  key: |
+    -----BEGIN PRIVATE KEY-----
+    MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC+mdo8osgl2/H3
+    ...
+    -----END PRIVATE KEY-----
+  ca: |
+    -----BEGIN CERTIFICATE-----
+    MIIDXTCCAkWgAwIBAgIJAKoK/heBjcOuMA0GCSqGSIb3DQEBBQUAMEUxCzAJBgNV
+    ...
+    -----END CERTIFICATE-----
+```
+
+_Note: GULP must have read access to the files in order to pass them to the HTTP client. This may mean mapping their location in Docker:_ 
+
+```
+docker run --rm -it -v $PWD:/gulp -v /etc/certs:/certs ghcr.io/thoom/gulp -client-cert "/certs/client-cert.pem" -client-cert-key "/certs/client-cert-key.pem" -custom-ca "/certs/ca.pem" https://api.ex.io/some-resource
+```
+
+## Library Dependencies
 
 	github.com/fatih/color
 	github.com/ghodss/yaml
 	github.com/stretchr/testify (tests only)
-
-    

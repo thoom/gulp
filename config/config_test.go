@@ -40,10 +40,48 @@ func TestLoadConfigurationNoParse(t *testing.T) {
 	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
 	defer testFile.Close()
 
+	// Write invalid YAML content (binary data that can't be parsed as YAML)
 	os.WriteFile(testFile.Name(), []byte{255, 253}, 0644)
 	_, err := LoadConfiguration(testFile.Name())
 	assert.NotNil(err)
-	assert.Contains(fmt.Sprintf("%s", err), "could not parse configuration")
+
+	errStr := fmt.Sprintf("%s", err)
+	// Verify the error message includes the filename
+	assert.Contains(errStr, testFile.Name())
+	// Verify it still contains the original error indication
+	assert.Contains(errStr, "could not parse configuration")
+	// Verify it includes helpful example
+	assert.Contains(errStr, "Example of valid YAML configuration")
+	assert.Contains(errStr, "url: https://api.example.com")
+	assert.Contains(errStr, "client_auth:")
+	assert.Contains(errStr, "https://github.com/thoom/gulp#configuration")
+}
+
+func TestLoadConfigurationInvalidYAMLSyntax(t *testing.T) {
+	assert := assert.New(t)
+	testFile, _ := os.CreateTemp(os.TempDir(), "test_file_prefix")
+	defer testFile.Close()
+
+	// Write YAML with syntax error (invalid indentation)
+	invalidYaml := `
+url: https://api.example.com
+headers:
+  Authorization: Bearer token
+    X-Invalid-Indent: this is incorrectly indented
+flags:
+  use_color: true
+`
+	os.WriteFile(testFile.Name(), []byte(invalidYaml), 0644)
+	_, err := LoadConfiguration(testFile.Name())
+	assert.NotNil(err)
+
+	errStr := fmt.Sprintf("%s", err)
+	// Verify the error message includes the filename
+	assert.Contains(errStr, testFile.Name())
+	// Verify it contains helpful information
+	assert.Contains(errStr, "could not parse configuration")
+	assert.Contains(errStr, "Example of valid YAML configuration")
+	assert.Contains(errStr, "# Basic configuration")
 }
 
 func TestLoadConfigurationMissingTimeout(t *testing.T) {

@@ -23,6 +23,7 @@ type Config struct {
 type ClientAuth struct {
 	Cert string `json:"cert"`
 	Key  string `json:"key"`
+	CA   string `json:"ca"`
 }
 
 // ConfigFlags contains valid configuration flags
@@ -101,8 +102,37 @@ func LoadConfiguration(fileName string) (*Config, error) {
 	}
 
 	var gulpConfig *Config
-	if yaml.Unmarshal(dat, &gulpConfig) != nil {
-		return nil, fmt.Errorf("could not parse configuration")
+	if err := yaml.Unmarshal(dat, &gulpConfig); err != nil {
+		return nil, fmt.Errorf(`could not parse configuration file '%s': %v
+
+Example of valid YAML configuration:
+---
+# Basic configuration
+url: https://api.example.com
+timeout: "30"
+
+# Optional request headers
+headers:
+  Authorization: Bearer your-token-here
+  X-Custom-Header: some-value
+
+# Optional client certificate authentication
+client_auth:
+  cert: /path/to/client-cert.pem
+  key: /path/to/client-key.pem
+  ca: /path/to/ca-cert.pem
+
+# Optional flags (all default to true)
+flags:
+  follow_redirects: "true"
+  use_color: "true"
+  verify_tls: "true"
+
+# Optional display setting
+display: verbose  # or "status-code-only"
+---
+
+For more examples, see: https://github.com/thoom/gulp#configuration`, fileName, err)
 	}
 
 	// Clean up spaced padding
@@ -113,6 +143,11 @@ func LoadConfiguration(fileName string) (*Config, error) {
 	// Clean up spaced padding
 	if gulpConfig.ClientAuth.Key != "" {
 		gulpConfig.ClientAuth.Key = strings.TrimSpace(gulpConfig.ClientAuth.Key)
+	}
+
+	// Clean up spaced padding
+	if gulpConfig.ClientAuth.CA != "" {
+		gulpConfig.ClientAuth.CA = strings.TrimSpace(gulpConfig.ClientAuth.CA)
 	}
 
 	return gulpConfig, nil

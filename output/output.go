@@ -37,7 +37,7 @@ func (bo *BuffOut) PrintStoplight(txt string, stopped bool) {
 		c = color.FgRed
 	}
 
-	fmt.Fprintln(bo.Out, color.New(c).Sprintf(txt))
+	fmt.Fprintln(bo.Out, color.New(c).Sprint(txt))
 }
 
 // PrintHeader prints out the header
@@ -71,7 +71,7 @@ func (bo *BuffOut) PrintBlock(block string) {
 			continue
 		}
 
-		formatted = append(formatted, color.New(color.FgBlack, color.BgCyan).Sprintf(v))
+		formatted = append(formatted, color.New(color.FgBlack, color.BgCyan).Sprint(v))
 	}
 
 	fmt.Fprintln(bo.Out, strings.Join(formatted, "\n"))
@@ -87,7 +87,7 @@ func (bo *BuffOut) PrintErr(txt string, err error) {
 		}
 	}
 
-	fmt.Fprintln(bo.Err, color.New(color.FgWhite, color.BgRed).Sprintf(txt))
+	fmt.Fprintln(bo.Err, color.New(color.FgWhite, color.BgRed).Sprint(txt))
 }
 
 // PrintVersion will output the current version and colophon
