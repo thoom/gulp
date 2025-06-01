@@ -20,20 +20,11 @@ var buildVersion string
 // PEM header prefix constant
 const pemHeaderPrefix = "-----BEGIN"
 
-// DisableTLSVerification disables TLS verification
-func DisableTLSVerification() {
-	http.DefaultTransport.(*http.Transport).TLSClientConfig = &tls.Config{
-		InsecureSkipVerify: true,
-		VerifyPeerCertificate: func(rawCerts [][]byte, verifiedChains [][]*x509.Certificate) error {
-			// This function will be called instead of the default verification
-			// Here you can implement your own logic or simply return nil to bypass all checks
-			return nil
-		},
-	}
-}
+// DisableTLSVerification is used as the flag to determine whether to verify the TLS certs of the request
+var DisableTLSVerification bool
 
-// CreateRequest will create a request object
-func CreateRequest(method, url string, body []byte, headers map[string]string, clientAuth config.ClientAuth) (*http.Request, error) {
+// CreateRequest Creates the http request and applies any authentication
+func CreateRequest(method, url string, body []byte, headers map[string]string, auth config.AuthConfig) (*http.Request, error) {
 	var reader io.Reader
 
 	// Don't build the reader if using a GET/HEAD request
@@ -46,97 +37,98 @@ func CreateRequest(method, url string, body []byte, headers map[string]string, c
 		return nil, fmt.Errorf("could not build request: %s", err)
 	}
 
-	// Add basic auth header if credentials are provided
-	if clientAuth.UseBasicAuth() {
-		auth := base64.StdEncoding.EncodeToString([]byte(clientAuth.Username + ":" + clientAuth.Password))
-		req.Header.Set("Authorization", "Basic "+auth)
+	// Apply basic auth if configured
+	if auth.UseBasicAuth() {
+		authStr := base64.StdEncoding.EncodeToString([]byte(auth.Basic.Username + ":" + auth.Basic.Password))
+		req.Header.Set("Authorization", "Basic "+authStr)
 	}
 
+	// Apply headers
 	for k, v := range headers {
 		req.Header.Set(k, v)
 	}
+
 	return req, nil
 }
 
-// CreateClient will create a new http.Client with basic defaults
-func CreateClient(followRedirects bool, timeout int, clientCert config.ClientAuth) (*http.Client, error) {
+// CreateClient Creates the HTTP client for the requests
+func CreateClient(followRedirects bool, timeout int, clientCert config.AuthConfig) (*http.Client, error) {
 	transport, err := createHTTPTransport(clientCert)
 	if err != nil {
 		return nil, err
 	}
 
-	return buildHTTPClient(followRedirects, timeout, transport), nil
+	client := buildHTTPClient(transport, followRedirects, timeout)
+	return client, nil
 }
 
-// createHTTPTransport creates an HTTP transport with TLS configuration
-func createHTTPTransport(clientCert config.ClientAuth) (*http.Transport, error) {
-	transport := &http.Transport{
-		DisableCompression: false,
-	}
+func createHTTPTransport(clientCert config.AuthConfig) (*http.Transport, error) {
+	// Create the default transport
+	transport := &http.Transport{}
 
+	// Build TLS configuration
 	tlsConfig, err := buildTLSConfig(clientCert)
 	if err != nil {
 		return nil, err
 	}
 
-	// Only set TLS config if we have either custom CA or client certs
-	if tlsConfig != nil {
-		transport.TLSClientConfig = tlsConfig
-	}
+	transport.TLSClientConfig = tlsConfig
 
 	return transport, nil
 }
 
-// buildTLSConfig creates TLS configuration for custom CA and client certificates
-func buildTLSConfig(clientCert config.ClientAuth) (*tls.Config, error) {
-	hasCA := strings.TrimSpace(clientCert.CA) != ""
-	hasClientCert := clientCert.UseAuth()
-
-	if !hasCA && !hasClientCert {
-		return nil, nil // No TLS config needed
-	}
-
+func buildTLSConfig(clientCert config.AuthConfig) (*tls.Config, error) {
 	tlsConfig := &tls.Config{}
 
-	if hasCA {
-		if err := configureCACertificate(tlsConfig, clientCert.CA); err != nil {
-			return nil, err
-		}
+	// Skip TLS verification if disabled
+	if DisableTLSVerification {
+		tlsConfig.InsecureSkipVerify = true
 	}
 
-	if hasClientCert {
-		if err := configureClientCertificate(tlsConfig, clientCert); err != nil {
-			return nil, err
-		}
+	// Configure CA certificate if provided
+	if err := configureCACertificate(tlsConfig, clientCert); err != nil {
+		return nil, err
+	}
+
+	// Configure client certificate if provided
+	if err := configureClientCertificate(tlsConfig, clientCert); err != nil {
+		return nil, err
 	}
 
 	return tlsConfig, nil
 }
 
-// configureCACertificate sets up custom CA certificate in TLS config
-func configureCACertificate(tlsConfig *tls.Config, caData string) error {
-	caCert, err := loadCertificateData(caData)
+func configureCACertificate(tlsConfig *tls.Config, clientCert config.AuthConfig) error {
+	ca := clientCert.Certificate.CA
+	if ca == "" {
+		return nil
+	}
+
+	caCertData, err := loadCertificateData(ca)
 	if err != nil {
-		return fmt.Errorf("could not read CA certificate: %w", err)
+		return fmt.Errorf("failed to load CA certificate: %w", err)
 	}
 
 	caCertPool := x509.NewCertPool()
-	if !caCertPool.AppendCertsFromPEM(caCert) {
-		return fmt.Errorf("failed to parse CA certificate")
-	}
-
+	caCertPool.AppendCertsFromPEM(caCertData)
 	tlsConfig.RootCAs = caCertPool
+
 	return nil
 }
 
-// configureClientCertificate sets up client certificate in TLS config
-func configureClientCertificate(tlsConfig *tls.Config, clientCert config.ClientAuth) error {
-	cert, err := loadClientCertificatePair(clientCert.Cert, clientCert.Key)
-	if err != nil {
-		return fmt.Errorf("invalid client cert/key: %w", err)
+func configureClientCertificate(tlsConfig *tls.Config, clientCert config.AuthConfig) error {
+	cert := clientCert.Certificate.Cert
+	key := clientCert.Certificate.Key
+	if cert == "" || key == "" {
+		return nil
 	}
 
-	tlsConfig.Certificates = []tls.Certificate{cert}
+	certPair, err := loadClientCertificatePair(cert, key)
+	if err != nil {
+		return fmt.Errorf("failed to load client certificate: %w", err)
+	}
+
+	tlsConfig.Certificates = []tls.Certificate{certPair}
 	return nil
 }
 
@@ -176,7 +168,7 @@ func loadClientCertificatePair(certData, keyData string) (tls.Certificate, error
 }
 
 // buildHTTPClient creates the final HTTP client with redirect and timeout configuration
-func buildHTTPClient(followRedirects bool, timeout int, transport *http.Transport) *http.Client {
+func buildHTTPClient(transport *http.Transport, followRedirects bool, timeout int) *http.Client {
 	client := &http.Client{
 		Timeout:   time.Duration(timeout) * time.Second,
 		Transport: transport,
@@ -191,63 +183,70 @@ func buildHTTPClient(followRedirects bool, timeout int, transport *http.Transpor
 	return client
 }
 
-// ClientAuthBuilder helps build ClientAuth configurations
-type ClientAuthBuilder struct {
-	auth config.ClientAuth
+// AuthConfigBuilder helps build AuthConfig configurations
+type AuthConfigBuilder struct {
+	auth config.AuthConfig
 }
 
-// NewClientAuthBuilder creates a new builder with base configuration
-func NewClientAuthBuilder(baseConfig config.ClientAuth) *ClientAuthBuilder {
-	return &ClientAuthBuilder{auth: baseConfig}
+// NewAuthConfigBuilder creates a new builder with base configuration
+func NewAuthConfigBuilder(baseConfig config.AuthConfig) *AuthConfigBuilder {
+	return &AuthConfigBuilder{auth: baseConfig}
 }
 
-// WithCert sets the client certificate
-func (b *ClientAuthBuilder) WithCert(cert string) *ClientAuthBuilder {
-	if strings.TrimSpace(cert) != "" {
-		b.auth.Cert = cert
-	}
+// WithCert sets the client certificate file
+func (b *AuthConfigBuilder) WithCert(cert string) *AuthConfigBuilder {
+	b.auth.Certificate.Cert = cert
 	return b
 }
 
-// WithKey sets the client certificate key
-func (b *ClientAuthBuilder) WithKey(key string) *ClientAuthBuilder {
-	if strings.TrimSpace(key) != "" {
-		b.auth.Key = key
-	}
+// WithKey sets the client key file
+func (b *AuthConfigBuilder) WithKey(key string) *AuthConfigBuilder {
+	b.auth.Certificate.Key = key
 	return b
 }
 
-// WithCA sets the custom CA certificate
-func (b *ClientAuthBuilder) WithCA(ca string) *ClientAuthBuilder {
-	if strings.TrimSpace(ca) != "" {
-		b.auth.CA = ca
-	}
+// WithCA sets the CA certificate file
+func (b *AuthConfigBuilder) WithCA(ca string) *AuthConfigBuilder {
+	b.auth.Certificate.CA = ca
 	return b
 }
 
 // WithBasicAuth sets basic authentication credentials
-func (b *ClientAuthBuilder) WithBasicAuth(username, password string) *ClientAuthBuilder {
-	if strings.TrimSpace(username) != "" {
-		b.auth.Username = username
-	}
-	if strings.TrimSpace(password) != "" {
-		b.auth.Password = password
-	}
+func (b *AuthConfigBuilder) WithBasicAuth(username, password string) *AuthConfigBuilder {
+	b.auth.Basic.Username = username
+	b.auth.Basic.Password = password
 	return b
 }
 
-// Build returns the final ClientAuth configuration
-func (b *ClientAuthBuilder) Build() config.ClientAuth {
+// Build returns the final AuthConfig configuration
+func (b *AuthConfigBuilder) Build() config.AuthConfig {
 	return b.auth
 }
 
-// BuildClientAuth creates a ClientAuth object (legacy compatibility)
-// Deprecated: Use NewClientAuthBuilder for better API
-func BuildClientAuth(clientCert, clientCertKey, clientCA, basicAuthUser, basicAuthPass string, clientCertConfig config.ClientAuth) config.ClientAuth {
-	return NewClientAuthBuilder(clientCertConfig).
-		WithCert(clientCert).
-		WithKey(clientCertKey).
-		WithCA(clientCA).
-		WithBasicAuth(basicAuthUser, basicAuthPass).
-		Build()
+// BuildAuthConfig creates an AuthConfig object from individual parameters
+func BuildAuthConfig(clientCert, clientCertKey, clientCA, basicAuthUser, basicAuthPass string, baseConfig config.AuthConfig) config.AuthConfig {
+	// Trim whitespace from all inputs
+	clientCert = strings.TrimSpace(clientCert)
+	clientCertKey = strings.TrimSpace(clientCertKey)
+	clientCA = strings.TrimSpace(clientCA)
+	basicAuthUser = strings.TrimSpace(basicAuthUser)
+	basicAuthPass = strings.TrimSpace(basicAuthPass)
+
+	builder := NewAuthConfigBuilder(baseConfig)
+
+	// Only set non-empty values
+	if clientCert != "" {
+		builder.WithCert(clientCert)
+	}
+	if clientCertKey != "" {
+		builder.WithKey(clientCertKey)
+	}
+	if clientCA != "" {
+		builder.WithCA(clientCA)
+	}
+	if basicAuthUser != "" || basicAuthPass != "" {
+		builder.WithBasicAuth(basicAuthUser, basicAuthPass)
+	}
+
+	return builder.Build()
 }

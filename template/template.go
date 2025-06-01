@@ -106,3 +106,27 @@ func ProcessStdin(content []byte, vars []string) ([]byte, error) {
 
 	return buf.Bytes(), nil
 }
+
+// ProcessInlineTemplate processes inline template content with direct variable access
+func ProcessInlineTemplate(content string, vars []string) ([]byte, error) {
+	// If no variables are provided, return the content as-is
+	if len(vars) == 0 {
+		return []byte(content), nil
+	}
+
+	// Parse template variables
+	templateVars := ParseTemplateVars(vars)
+
+	// Parse and execute the template with direct variable access
+	tmpl, err := template.New("inline").Parse(content)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse inline template: %v", err)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.Execute(&buf, templateVars); err != nil {
+		return nil, fmt.Errorf("could not execute inline template: %v", err)
+	}
+
+	return buf.Bytes(), nil
+}
