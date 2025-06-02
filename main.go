@@ -49,10 +49,8 @@ var (
 	configFile string
 
 	// Display flags
-	outputMode   string
-	responseOnly bool // legacy override
-	statusOnly   bool // legacy override
-	noColor      bool
+	outputMode string
+	noColor    bool
 
 	// Request configuration
 	headers  []string
@@ -82,9 +80,6 @@ var (
 	templateVars []string
 	formFields   []string
 	formMode     bool
-
-	// Legacy file flag (for backwards compatibility)
-	fileFlag string
 
 	// Version flag
 	versionFlag bool
@@ -143,8 +138,6 @@ Request Options:
 Output & Display:
   -o, --output MODE         Output mode: body, status, verbose
   -n, --no-color           Disable colored output
-  -ro, --ro                 (Legacy) Only display response body
-  -sco, --sco              (Legacy) Only display status code
 
 Redirect Options:
   -fr, --follow-redirects   Enable following redirects
@@ -155,7 +148,6 @@ Load Testing:
   -rc, --repeat-concurrent CONCURRENT  Number of concurrent connections
 
 Other Options:
-  -f, --file FILE          (Legacy) File input (use --body instead)
   -v, --version            Show version information
 
 Global Flags:
@@ -182,8 +174,6 @@ func init() {
 
 	// === OUTPUT & DISPLAY ===
 	rootCmd.Flags().StringVar(&outputMode, "output", "", "Output mode: body, status, verbose")
-	rootCmd.Flags().BoolVar(&responseOnly, "ro", false, "(Legacy) Only display response body")
-	rootCmd.Flags().BoolVar(&statusOnly, "sco", false, "(Legacy) Only display status code")
 	rootCmd.Flags().BoolVar(&noColor, "no-color", false, "Disable colored output")
 
 	// === DATA INPUT ===
@@ -214,9 +204,6 @@ func init() {
 	// === LOAD TESTING ===
 	rootCmd.Flags().IntVar(&repeatTimes, "repeat-times", 1, "Number of requests to make")
 	rootCmd.Flags().IntVar(&repeatConcurrent, "repeat-concurrent", 1, "Number of concurrent connections")
-
-	// === LEGACY / COMPATIBILITY ===
-	rootCmd.Flags().StringVar(&fileFlag, "file", "", "(Legacy) File input (use --body instead)")
 
 	// === OTHER ===
 	rootCmd.Flags().BoolVar(&versionFlag, "version", false, "Show version information")
@@ -286,8 +273,6 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 	fmt.Printf("Output & Display:\n")
 	printFlag(cmd, "output", "")
 	printFlag(cmd, "no-color", "")
-	printFlag(cmd, "ro", "")
-	printFlag(cmd, "sco", "")
 	fmt.Println()
 
 	// Redirect Options
@@ -305,7 +290,6 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 	// Other Options
 	fmt.Printf("Other Options:\n")
 	printFlag(cmd, "version", "")
-	printFlag(cmd, "file", "")
 }
 
 // printFlag formats and prints a flag with its usage
@@ -414,53 +398,40 @@ func getTargetURL(args []string) (string, error) {
 	return client.BuildURL(targetURL, gulpConfig.URL)
 }
 
-// processDisplayFlags handles the display flag logic with precedence
+// processDisplayFlags handles the display flag logic
 func processDisplayFlags() {
-	// Handle new --output flag first (highest precedence)
+	// Handle -v/--verbose flag as shortcut for --output verbose
+	if verbose {
+		outputMode = "verbose"
+		return
+	}
+
+	// Handle --output flag (highest precedence after verbose)
 	if outputMode != "" {
+		// outputMode is already set, just validate it
 		switch strings.ToLower(outputMode) {
-		case "body":
-			responseOnly = true
-			statusOnly = false
-			verbose = false
-		case "status":
-			responseOnly = false
-			statusOnly = true
-			verbose = false
-		case "verbose":
-			responseOnly = false
-			statusOnly = false
-			verbose = true
+		case "body", "status", "verbose":
+			return // Valid output mode
+		default:
+			outputMode = "body" // Default to body for invalid modes
 		}
 		return
 	}
 
-	// Handle legacy override flags
-	if responseOnly || statusOnly || verbose {
-		return // Explicit flags take precedence
-	}
-
-	// Use new config.Output field first (v1.0)
-	if gulpConfig.Output != "" && gulpConfig.Output != "body" {
-		switch strings.ToLower(gulpConfig.Output) {
-		case "status":
-			statusOnly = true
-		case "verbose":
-			verbose = true
-		default:
-			responseOnly = true
-		}
+	// Use config.Output field (v1.0)
+	if gulpConfig.Output != "" {
+		outputMode = gulpConfig.Output
 		return
 	}
 
 	// Fall back to legacy config.Display field for backwards compatibility
 	switch gulpConfig.Display {
 	case "status-code-only":
-		statusOnly = true
+		outputMode = "status"
 	case "verbose":
-		verbose = true
+		outputMode = "verbose"
 	default:
-		responseOnly = true // Default behavior
+		outputMode = "body" // Default behavior
 	}
 }
 
@@ -552,11 +523,12 @@ func getRequestBody() ([]byte, error) {
 		return processBodyFlag(bodyData)
 	}
 
+	// 2. Check template flag
 	if templateFile != "" {
 		return processTemplateFlag(templateFile)
 	}
 
-	// 2. Check configuration data settings
+	// 3. Check configuration data settings
 	if gulpConfig.Data.Body != "" {
 		// Check if config body contains template variables and we have variables to substitute
 		if len(gulpConfig.Data.Variables) > 0 || len(templateVars) > 0 {
@@ -604,15 +576,6 @@ func getRequestBody() ([]byte, error) {
 		if gulpConfig.Data.FormMode {
 			formMode = true
 		}
-	}
-
-	// 3. Check legacy file flag support
-	if fileFlag != "" {
-		if len(templateVars) > 0 {
-			// Template processing enabled by presence of vars
-			return template.ProcessTemplate(fileFlag, templateVars)
-		}
-		return os.ReadFile(fileFlag)
 	}
 
 	// 4. Check for stdin
@@ -682,7 +645,7 @@ func disableColorOutput() {
 func disableTLSVerify() {
 	if insecure || !gulpConfig.VerifyTLS() {
 		client.DisableTLSVerification = true
-		if verbose {
+		if outputMode == "verbose" {
 			output.Out.PrintWarning("TLS CHECKING IS DISABLED FOR THIS REQUEST")
 		}
 	}
@@ -733,7 +696,7 @@ func handleVersionFlag() error {
 
 	if err != nil {
 		output.Out.PrintVersion(currentVersion)
-		if verbose {
+		if outputMode == "verbose" {
 			output.Out.PrintWarning(fmt.Sprintf("Could not check for updates: %s", err))
 		}
 	} else {
@@ -794,7 +757,7 @@ func executeHTTPRequest(url string, body []byte, headers map[string]string, iter
 	}
 
 	// Print request if verbose
-	if verbose || repeatTimes > 1 {
+	if outputMode == "verbose" || repeatTimes > 1 {
 		printRequest(iteration, url, req.Header, req.ContentLength, req.Proto, output.Out)
 	}
 
@@ -864,7 +827,7 @@ func convertJSONBody(body []byte, headers map[string]string) ([]byte, error) {
 }
 
 func printRequest(iteration int, url string, headers map[string][]string, contentLength int64, protocol string, bo *output.BuffOut) {
-	if !verbose {
+	if outputMode != "verbose" {
 		printIterationPrefix(iteration, bo)
 		return
 	}
@@ -947,22 +910,25 @@ func getSortedHeaders(headers map[string][]string) []string {
 }
 
 func handleResponse(resp *http.Response, duration float64, bo *output.BuffOut) {
-	if statusOnly {
-		fmt.Fprintln(bo.Out, resp.StatusCode)
-		return
-	}
-
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 
-	if verbose {
+	// Handle different output modes
+	switch strings.ToLower(outputMode) {
+	case "status":
+		fmt.Fprintln(bo.Out, resp.StatusCode)
+		return
+	case "verbose":
 		bo.PrintStoplight(fmt.Sprintf("Status: %s (%.2f seconds)\n", resp.Status, duration), resp.StatusCode >= 400)
 		printResponseHeaders(resp.Header, bo)
 		fmt.Fprintln(bo.Out, "")
+		formattedBody := formatResponseBody(body, resp.Header)
+		fmt.Fprintln(bo.Out, string(formattedBody))
+		return
+	default: // "body" or empty (default to body)
+		fmt.Fprintln(bo.Out, string(body))
+		return
 	}
-
-	formattedBody := formatResponseBody(body, resp.Header)
-	fmt.Fprintln(bo.Out, string(formattedBody))
 }
 
 // printResponseHeaders prints response headers in sorted order
@@ -980,7 +946,7 @@ func printResponseHeaders(headers http.Header, bo *output.BuffOut) {
 
 // formatResponseBody formats the response body, applying JSON pretty-printing if applicable
 func formatResponseBody(body []byte, headers http.Header) []byte {
-	if !verbose {
+	if outputMode != "verbose" {
 		return body
 	}
 

@@ -7,7 +7,7 @@ This guide helps you migrate from earlier versions of GULP to v1.0. **Note: v1.0
 - ❌ **Legacy flags removed**: `-ro`, `-sco` (single dash flags)
 - ❌ **Configuration format changes**: `display` → `output`, `client_auth` → `auth.certificate`
 - ❌ **Removed flag**: `use_color` (now controlled by `--output`)
-- ✅ **NEW: Template system**: `--file` with `--var` for dynamic templates
+- ✅ **NEW: Template system**: `--template` with `--var` for dynamic templates
 - ✅ **NEW: Basic authentication**: `auth.basic` support in config
 - ✅ **NEW: Form handling**: URL-encoded and multipart form support
 - ✅ **NEW: cURL-like input**: Enhanced input handling
@@ -47,7 +47,7 @@ gulp -m POST https://api.example.com < data.json
 **✅ New (Dynamic Templates):**
 ```bash
 # Dynamic templates with variables
-gulp --file request.json \
+gulp --template request.json \
   --var name="John" \
   --var env="prod" \
   --var timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -175,7 +175,7 @@ cat > user-request.json << 'EOF'
 EOF
 
 # Use template with variables
-gulp --file user-request.json \
+gulp --template user-request.json \
   --var name="John" \
   --var email="john@example.com" \
   --var timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -385,7 +385,7 @@ gulp -m POST \
   - [ ] Remove `use_color` flag (now controlled by `--output`)
   - [ ] Add `method:` to config if using POST/PUT/etc
   - [ ] Migrate to template syntax in headers if using variables
-- [ ] Update scripts to use templates with `--file` and `--var` for dynamic content
+- [ ] Update scripts to use templates with `--template` and `--var` for dynamic content
 - [ ] Replace manual load testing with `--repeat-times` and `--repeat-concurrent`
 - [ ] Use new `--form` flags for form data (if applicable)
 - [ ] Test all configurations and scripts with v1.0

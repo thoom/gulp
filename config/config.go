@@ -120,12 +120,13 @@ func newConfig() *Config {
 
 // FollowRedirects determines whether or not to follow 301/302 redirects
 func (gc *Config) FollowRedirects() bool {
-	// Check request-specific override first
+	// Check request-specific NoRedirects override first (takes absolute precedence)
 	if gc.Request.NoRedirects != nil && *gc.Request.NoRedirects {
 		return false
 	}
-	if gc.Request.FollowRedirects != nil && *gc.Request.FollowRedirects {
-		return true
+	// Check request-specific FollowRedirects override
+	if gc.Request.FollowRedirects != nil {
+		return *gc.Request.FollowRedirects
 	}
 	// Fall back to global flag
 	return gc.Flags.FollowRedirects

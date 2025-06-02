@@ -7,7 +7,7 @@
 
 ```bash
 # Create dynamic requests with templates
-gulp --file user-template.json \
+gulp --template user-template.json \
   --var name="John Doe" \
   --var env="production" \
   --var timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
@@ -110,7 +110,7 @@ gulp -m POST \
 
 ```bash
 # Simple template usage
-gulp --file examples/user-creation.json \
+gulp --template examples/user-creation.json \
   --var name="Alice" \
   --var email="alice@company.com" \
   --var role="developer" \
@@ -175,3 +175,20 @@ data:
 ---
 
 **Ready to upgrade?** Check the [Migration Guide](MIGRATION-V1.md) for step-by-step instructions and comprehensive examples. 
+
+## Try the Examples
+
+```bash
+# Test template processing with variables  
+gulp --template examples/user-creation.json \
+     --var name="Jane Smith" \
+     --var email="jane@example.com" \
+     --var department="Engineering" \
+     https://httpbin.org/post
+
+# Test unified configuration
+gulp --config examples/api-config.yml
+
+# Test load testing
+gulp --config examples/load-test.yml
+``` 

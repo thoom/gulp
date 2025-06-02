@@ -110,32 +110,8 @@ func TestShouldFollowRedirectsFlagsNoRedirectWins(t *testing.T) {
 }
 
 func resetDisplayFlags() {
-	responseOnly = false
-	statusOnly = false
 	verbose = false
 	outputMode = ""
-}
-
-func TestProcessDisplayFlagsResponseOnly(t *testing.T) {
-	assert := assert.New(t)
-	resetDisplayFlags()
-
-	responseOnly = true
-	processDisplayFlags()
-	assert.True(responseOnly)
-	assert.False(statusOnly)
-	assert.False(verbose)
-}
-
-func TestProcessDisplayFlagsStatusCode(t *testing.T) {
-	assert := assert.New(t)
-	resetDisplayFlags()
-
-	statusOnly = true
-	processDisplayFlags()
-	assert.False(responseOnly)
-	assert.True(statusOnly)
-	assert.False(verbose)
 }
 
 func TestProcessDisplayFlagsVerbose(t *testing.T) {
@@ -144,9 +120,7 @@ func TestProcessDisplayFlagsVerbose(t *testing.T) {
 
 	verbose = true
 	processDisplayFlags()
-	assert.False(responseOnly)
-	assert.False(statusOnly)
-	assert.True(verbose)
+	assert.Equal("verbose", outputMode)
 }
 
 func TestProcessDisplayFlagsOutputModeBody(t *testing.T) {
@@ -155,9 +129,7 @@ func TestProcessDisplayFlagsOutputModeBody(t *testing.T) {
 
 	outputMode = "body"
 	processDisplayFlags()
-	assert.True(responseOnly)
-	assert.False(statusOnly)
-	assert.False(verbose)
+	assert.Equal("body", outputMode)
 }
 
 func TestProcessDisplayFlagsOutputModeStatus(t *testing.T) {
@@ -166,9 +138,7 @@ func TestProcessDisplayFlagsOutputModeStatus(t *testing.T) {
 
 	outputMode = "status"
 	processDisplayFlags()
-	assert.False(responseOnly)
-	assert.True(statusOnly)
-	assert.False(verbose)
+	assert.Equal("status", outputMode)
 }
 
 func TestProcessDisplayFlagsOutputModeVerbose(t *testing.T) {
@@ -177,9 +147,7 @@ func TestProcessDisplayFlagsOutputModeVerbose(t *testing.T) {
 
 	outputMode = "verbose"
 	processDisplayFlags()
-	assert.False(responseOnly)
-	assert.False(statusOnly)
-	assert.True(verbose)
+	assert.Equal("verbose", outputMode)
 }
 
 func TestProcessDisplayFlagsConfig(t *testing.T) {
@@ -187,31 +155,35 @@ func TestProcessDisplayFlagsConfig(t *testing.T) {
 	resetDisplayFlags()
 
 	processDisplayFlags()
-	assert.True(responseOnly)
-	assert.False(statusOnly)
-	assert.False(verbose)
+	assert.Equal("body", outputMode)
 }
 
 func TestProcessDisplayFlagsConfigStatusCode(t *testing.T) {
 	assert := assert.New(t)
 	resetDisplayFlags()
 
+	// Reset config fields
+	gulpConfig.Output = ""
 	gulpConfig.Display = "status-code-only"
 	processDisplayFlags()
-	assert.False(responseOnly)
-	assert.True(statusOnly)
-	assert.False(verbose)
+	assert.Equal("status", outputMode)
+
+	// Reset
+	gulpConfig.Display = ""
 }
 
 func TestProcessDisplayFlagsConfigVerbose(t *testing.T) {
 	assert := assert.New(t)
 	resetDisplayFlags()
 
+	// Reset config fields
+	gulpConfig.Output = ""
 	gulpConfig.Display = "verbose"
 	processDisplayFlags()
-	assert.False(responseOnly)
-	assert.False(statusOnly)
-	assert.True(verbose)
+	assert.Equal("verbose", outputMode)
+
+	// Reset
+	gulpConfig.Display = ""
 }
 
 func TestHandleResponse(t *testing.T) {
@@ -232,12 +204,13 @@ func TestHandleResponse(t *testing.T) {
 	bo := &output.BuffOut{Out: b, Err: b}
 
 	resetDisplayFlags()
-	verbose = true
+	outputMode = "verbose"
 
 	handleResponse(resp, 0.25, bo)
-	assert.Contains(b.String(), "Status: 200 OK (0.25 seconds)")
-	assert.Contains(b.String(), "CUSTOM-HEADER: custom-value")
-	assert.Contains(b.String(), `{"foo": "bar"}`)
+	result := b.String()
+	assert.Contains(result, "Status: 200 OK (0.25 seconds)")
+	assert.Contains(result, "CUSTOM-HEADER: custom-value")
+	assert.Contains(result, `"foo": "bar"`)
 }
 
 func TestHandleResponseStatusCode(t *testing.T) {
@@ -257,7 +230,7 @@ func TestHandleResponseStatusCode(t *testing.T) {
 	bo := &output.BuffOut{Out: b, Err: b}
 
 	resetDisplayFlags()
-	statusOnly = true
+	outputMode = "status"
 
 	handleResponse(resp, 0.25, bo)
 	assert.Equal("201\n", b.String())
@@ -442,7 +415,7 @@ func TestPrintRequestNotVerboseRepeat1(t *testing.T) {
 
 	b := &bytes.Buffer{}
 	bo := &output.BuffOut{Out: b, Err: b}
-	verbose = false
+	outputMode = "body"
 
 	printRequest(0, "http://example.com", nil, 0, "HTTP/1.1", bo)
 	assert.Equal("", b.String())
@@ -453,7 +426,7 @@ func TestPrintRequestNotVerboseRepeat7(t *testing.T) {
 
 	b := &bytes.Buffer{}
 	bo := &output.BuffOut{Out: b, Err: b}
-	verbose = false
+	outputMode = "body"
 
 	printRequest(7, "http://example.com", nil, 0, "HTTP/1.1", bo)
 	assert.Equal("7: ", b.String())
@@ -464,7 +437,7 @@ func TestPrintRequestVerboseRepeat0(t *testing.T) {
 
 	b := &bytes.Buffer{}
 	bo := &output.BuffOut{Out: b, Err: b}
-	verbose = true
+	outputMode = "verbose"
 	method = "GET"
 
 	printRequest(0, "http://example.com", nil, 0, "HTTP/1.1", bo)
@@ -476,7 +449,7 @@ func TestPrintRequestVerboseRepeat7(t *testing.T) {
 
 	b := &bytes.Buffer{}
 	bo := &output.BuffOut{Out: b, Err: b}
-	verbose = true
+	outputMode = "verbose"
 	method = "GET"
 
 	printRequest(7, "http://example.com", nil, 0, "HTTP/1.1", bo)
@@ -489,7 +462,7 @@ func TestPrintRequestVerboseRepeat0Headers(t *testing.T) {
 
 	b := &bytes.Buffer{}
 	bo := &output.BuffOut{Out: b, Err: b}
-	verbose = true
+	outputMode = "verbose"
 	method = "POST"
 
 	headers := map[string][]string{
@@ -954,13 +927,13 @@ func TestFormatResponseBody(t *testing.T) {
 	headers.Set("Content-Type", "application/json")
 
 	// Test with verbose off (should return original)
-	verbose = false
+	outputMode = "body"
 	body := []byte(`{"test":"value"}`)
 	result := formatResponseBody(body, headers)
 	assert.Equal(body, result)
 
 	// Test with verbose on and JSON content
-	verbose = true
+	outputMode = "verbose"
 	result = formatResponseBody(body, headers)
 	// Should be pretty-printed JSON
 	assert.Contains(string(result), "{\n")
@@ -979,7 +952,7 @@ func TestFormatResponseBody(t *testing.T) {
 	assert.Equal(invalidJSON, result)
 
 	// Reset
-	verbose = false
+	outputMode = ""
 }
 
 func TestPrintResponseHeaders(t *testing.T) {
@@ -1095,7 +1068,6 @@ func TestGetRequestBodyConfigTemplate(t *testing.T) {
 	bodyData = ""
 	templateFile = ""
 	formFields = []string{}
-	fileFlag = ""
 	gulpConfig.Data.Body = ""
 	gulpConfig.Data.Template = ""
 	gulpConfig.Data.Variables = make(map[string]string)
@@ -1170,35 +1142,34 @@ func TestGetRequestBodyConfigForm(t *testing.T) {
 	gulpConfig.Data.Form = make(map[string]string)
 }
 
-func TestGetRequestBodyFileFlag(t *testing.T) {
+func TestGetRequestBodyTemplateFileFlag(t *testing.T) {
 	assert := assert.New(t)
 
 	// Reset globals
 	method = "POST"
 	bodyData = ""
 	templateFile = ""
-	fileFlag = ""
 	templateVars = []string{}
 
-	// Test file flag without template vars
-	tempFile, _ := os.CreateTemp("", "file-flag-*.json")
+	// Test template file without template vars
+	tempFile, _ := os.CreateTemp("", "template-file-*.json")
 	defer os.Remove(tempFile.Name())
-	tempFile.WriteString(`{"test": "file flag"}`)
+	tempFile.WriteString(`{"test": "template file"}`)
 	tempFile.Close()
 
-	fileFlag = tempFile.Name()
+	templateFile = tempFile.Name()
 
 	body, err := getRequestBody()
 	assert.NoError(err)
-	assert.Equal(`{"test": "file flag"}`, string(body))
+	assert.Equal(`{"test": "template file"}`, string(body))
 
-	// Test file flag with template vars
-	tempFile2, _ := os.CreateTemp("", "file-flag-template-*.json")
+	// Test template file with template vars
+	tempFile2, _ := os.CreateTemp("", "template-file-vars-*.json")
 	defer os.Remove(tempFile2.Name())
 	tempFile2.WriteString(`{"name": "{{.Vars.name}}"}`)
 	tempFile2.Close()
 
-	fileFlag = tempFile2.Name()
+	templateFile = tempFile2.Name()
 	templateVars = []string{"name=template"}
 
 	body, err = getRequestBody()
@@ -1206,7 +1177,7 @@ func TestGetRequestBodyFileFlag(t *testing.T) {
 	assert.Contains(string(body), `"name": "template"`)
 
 	// Reset
-	fileFlag = ""
+	templateFile = ""
 	templateVars = []string{}
 }
 
@@ -1653,7 +1624,7 @@ func TestProcessDisplayFlagsWithEmptyOutputMode(t *testing.T) {
 	gulpConfig.Display = ""
 
 	processDisplayFlags()
-	assert.True(responseOnly) // Default behavior
+	assert.Equal("body", outputMode) // Default behavior
 }
 
 func TestProcessRequestDataWithFormMode(t *testing.T) {
