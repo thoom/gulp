@@ -117,14 +117,19 @@ func ProcessInlineTemplate(content string, vars []string) ([]byte, error) {
 	// Parse template variables
 	templateVars := ParseTemplateVars(vars)
 
-	// Parse and execute the template with direct variable access
+	// Create template data
+	data := TemplateData{
+		Vars: templateVars,
+	}
+
+	// Parse and execute the template with proper data structure
 	tmpl, err := template.New("inline").Parse(content)
 	if err != nil {
 		return nil, fmt.Errorf("could not parse inline template: %v", err)
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, templateVars); err != nil {
+	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, fmt.Errorf("could not execute inline template: %v", err)
 	}
 

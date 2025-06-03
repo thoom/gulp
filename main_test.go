@@ -1104,8 +1104,8 @@ func TestGetRequestBodyConfigBodyWithVariables(t *testing.T) {
 	gulpConfig.Data.Variables = make(map[string]string)
 
 	// Test config body with inline template variables
-	// When config has both body and variables, it uses ProcessInlineTemplate which needs {{.key}} syntax
-	gulpConfig.Data.Body = `{"user": "{{.username}}", "role": "{{.role}}"}`
+	// When config has body and variables, it uses ProcessInlineTemplate with {{.Vars.key}} syntax
+	gulpConfig.Data.Body = `{"user": "{{.Vars.username}}", "role": "{{.Vars.role}}"}`
 	gulpConfig.Data.Variables = map[string]string{"username": "admin", "role": "superuser"}
 
 	body, err := getRequestBody()
@@ -1700,4 +1700,229 @@ func TestPrintFlagWithoutShorthand(t *testing.T) {
 	outputStr := buf.String()
 
 	assert.Contains(outputStr, "--test-long")
+}
+
+// Tests for processConfigTemplates function
+func TestProcessConfigTemplatesURL(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset config
+	oldConfig := gulpConfig
+	gulpConfig = config.New
+	defer func() { gulpConfig = oldConfig }()
+
+	// Test URL templating
+	gulpConfig.URL = "https://api.{{.Vars.environment}}.company.com/{{.Vars.endpoint}}"
+	vars := []string{"environment=staging", "endpoint=users"}
+
+	err := processConfigTemplates(vars)
+	assert.NoError(err)
+	assert.Equal("https://api.staging.company.com/users", gulpConfig.URL)
+}
+
+func TestProcessConfigTemplatesHeaders(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset config
+	oldConfig := gulpConfig
+	gulpConfig = config.New
+	defer func() { gulpConfig = oldConfig }()
+
+	// Test header templating
+	gulpConfig.Headers = map[string]string{
+		"Authorization":      "Bearer {{.Vars.token}}",
+		"X-Environment":      "{{.Vars.env}}",
+		"{{.Vars.key_name}}": "{{.Vars.key_value}}",
+	}
+	vars := []string{"token=secret123", "env=production", "key_name=X-Custom", "key_value=custom123"}
+
+	err := processConfigTemplates(vars)
+	assert.NoError(err)
+	assert.Equal("Bearer secret123", gulpConfig.Headers["Authorization"])
+	assert.Equal("production", gulpConfig.Headers["X-Environment"])
+	assert.Equal("custom123", gulpConfig.Headers["X-Custom"])
+	// Original templated key should be gone
+	_, exists := gulpConfig.Headers["{{.Vars.key_name}}"]
+	assert.False(exists)
+}
+
+func TestProcessConfigTemplatesNoVars(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset config
+	oldConfig := gulpConfig
+	gulpConfig = config.New
+	defer func() { gulpConfig = oldConfig }()
+
+	originalURL := "https://example.com"
+	gulpConfig.URL = originalURL
+	gulpConfig.Headers = map[string]string{"Authorization": "Bearer token"}
+
+	err := processConfigTemplates([]string{})
+	assert.NoError(err)
+	// Should remain unchanged when no variables
+	assert.Equal(originalURL, gulpConfig.URL)
+	assert.Equal("Bearer token", gulpConfig.Headers["Authorization"])
+}
+
+func TestProcessConfigTemplatesEmptyConfig(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset config
+	oldConfig := gulpConfig
+	gulpConfig = config.New
+	defer func() { gulpConfig = oldConfig }()
+
+	// Empty config should not error
+	err := processConfigTemplates([]string{"var=value"})
+	assert.NoError(err)
+}
+
+func TestProcessConfigTemplatesURLError(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset config
+	oldConfig := gulpConfig
+	gulpConfig = config.New
+	defer func() { gulpConfig = oldConfig }()
+
+	// Test invalid URL template
+	gulpConfig.URL = "https://{{.Invalid .Syntax}}"
+	vars := []string{"var=value"}
+
+	err := processConfigTemplates(vars)
+	assert.Error(err)
+	assert.Contains(err.Error(), "failed to process URL template")
+}
+
+func TestProcessConfigTemplatesHeaderKeyError(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset config
+	oldConfig := gulpConfig
+	gulpConfig = config.New
+	defer func() { gulpConfig = oldConfig }()
+
+	// Test invalid header key template with valid URL
+	gulpConfig.URL = "https://example.com" // Valid URL so we get to header processing
+	gulpConfig.Headers = map[string]string{
+		"{{.Invalid .Syntax}}": "value",
+	}
+	vars := []string{"var=value"}
+
+	err := processConfigTemplates(vars)
+	assert.Error(err)
+	assert.Contains(err.Error(), "failed to process header key template")
+}
+
+func TestProcessConfigTemplatesHeaderValueError(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset config
+	oldConfig := gulpConfig
+	gulpConfig = config.New
+	defer func() { gulpConfig = oldConfig }()
+
+	// Test invalid header value template with valid URL
+	gulpConfig.URL = "https://example.com" // Valid URL so we get to header processing
+	gulpConfig.Headers = map[string]string{
+		"Authorization": "Bearer {{.Invalid .Syntax}}",
+	}
+	vars := []string{"var=value"}
+
+	err := processConfigTemplates(vars)
+	assert.Error(err)
+	assert.Contains(err.Error(), "failed to process header value template")
+}
+
+func TestProcessConfigTemplatesMissingVariable(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset config
+	oldConfig := gulpConfig
+	gulpConfig = config.New
+	defer func() { gulpConfig = oldConfig }()
+
+	// Test with missing variable (should not error, just use <no value>)
+	gulpConfig.URL = "https://api.{{.Vars.missing}}.com"
+	gulpConfig.Headers = map[string]string{
+		"X-Missing": "{{.Vars.also_missing}}",
+	}
+	vars := []string{"existing=value"}
+
+	err := processConfigTemplates(vars)
+	assert.NoError(err)
+	assert.Equal("https://api.<no value>.com", gulpConfig.URL)
+	assert.Equal("<no value>", gulpConfig.Headers["X-Missing"])
+}
+
+func TestProcessConfigTemplatesComplexScenario(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset config
+	oldConfig := gulpConfig
+	gulpConfig = config.New
+	defer func() { gulpConfig = oldConfig }()
+
+	// Test complex real-world scenario
+	gulpConfig.URL = "https://{{.Vars.subdomain}}.{{.Vars.domain}}/{{.Vars.api_version}}/{{.Vars.resource}}"
+	gulpConfig.Headers = map[string]string{
+		"Authorization": "Bearer {{.Vars.api_token}}",
+		"X-Environment": "{{.Vars.environment}}",
+		"X-Request-ID":  "{{.Vars.request_id}}",
+		"User-Agent":    "MyApp/{{.Vars.version}} ({{.Vars.environment}})",
+		"Content-Type":  "application/json", // Non-templated header
+	}
+
+	vars := []string{
+		"subdomain=api",
+		"domain=example.com",
+		"api_version=v2",
+		"resource=users/123",
+		"api_token=abc123xyz",
+		"environment=production",
+		"request_id=req-456",
+		"version=1.2.3",
+	}
+
+	err := processConfigTemplates(vars)
+	assert.NoError(err)
+
+	// Verify URL
+	assert.Equal("https://api.example.com/v2/users/123", gulpConfig.URL)
+
+	// Verify headers
+	assert.Equal("Bearer abc123xyz", gulpConfig.Headers["Authorization"])
+	assert.Equal("production", gulpConfig.Headers["X-Environment"])
+	assert.Equal("req-456", gulpConfig.Headers["X-Request-ID"])
+	assert.Equal("MyApp/1.2.3 (production)", gulpConfig.Headers["User-Agent"])
+	assert.Equal("application/json", gulpConfig.Headers["Content-Type"]) // Non-templated should remain
+}
+
+func TestProcessConfigTemplatesSpecialCharacters(t *testing.T) {
+	assert := assert.New(t)
+
+	// Reset config
+	oldConfig := gulpConfig
+	gulpConfig = config.New
+	defer func() { gulpConfig = oldConfig }()
+
+	// Test with special characters in values
+	gulpConfig.URL = "https://{{.Vars.encoded_url}}"
+	gulpConfig.Headers = map[string]string{
+		"X-Special": "{{.Vars.special_chars}}",
+		"X-Unicode": "{{.Vars.unicode}}",
+	}
+
+	vars := []string{
+		"encoded_url=example.com:8080/path?param=value&other=data",
+		"special_chars=$100.50 & 25% off!",
+		"unicode=café🚀世界",
+	}
+
+	err := processConfigTemplates(vars)
+	assert.NoError(err)
+	assert.Equal("https://example.com:8080/path?param=value&other=data", gulpConfig.URL)
+	assert.Equal("$100.50 & 25% off!", gulpConfig.Headers["X-Special"])
+	assert.Equal("café🚀世界", gulpConfig.Headers["X-Unicode"])
 }

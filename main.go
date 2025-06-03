@@ -335,6 +335,11 @@ func runGulp(args []string) error {
 	processDisplayFlags()
 	disableColorOutput()
 
+	// Process config templates
+	if err := processConfigTemplates(templateVars); err != nil {
+		return err
+	}
+
 	// Get the target URL
 	url, err := getTargetURL(args)
 	if err != nil {
@@ -474,6 +479,45 @@ func processRequestData() ([]byte, map[string]string, error) {
 	}
 
 	return body, headerMap, nil
+}
+
+// processConfigTemplates applies template variable substitution to config fields
+func processConfigTemplates(templateVars []string) error {
+	if len(templateVars) == 0 {
+		return nil // No variables to process
+	}
+
+	// Process URL field
+	if gulpConfig.URL != "" {
+		processedURL, err := template.ProcessInlineTemplate(gulpConfig.URL, templateVars)
+		if err != nil {
+			return fmt.Errorf("failed to process URL template: %w", err)
+		}
+		gulpConfig.URL = string(processedURL)
+	}
+
+	// Process header fields
+	if len(gulpConfig.Headers) > 0 {
+		processedHeaders := make(map[string]string)
+		for key, value := range gulpConfig.Headers {
+			// Process header key
+			processedKey, err := template.ProcessInlineTemplate(key, templateVars)
+			if err != nil {
+				return fmt.Errorf("failed to process header key template '%s': %w", key, err)
+			}
+
+			// Process header value
+			processedValue, err := template.ProcessInlineTemplate(value, templateVars)
+			if err != nil {
+				return fmt.Errorf("failed to process header value template '%s': %w", value, err)
+			}
+
+			processedHeaders[string(processedKey)] = string(processedValue)
+		}
+		gulpConfig.Headers = processedHeaders
+	}
+
+	return nil
 }
 
 // buildAuthConfig creates authentication configuration from flags

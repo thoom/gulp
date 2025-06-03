@@ -34,8 +34,8 @@ request:
 
 # Load testing configuration
 repeat:
-  times: "{{.Vars.repeat_count}}"
-  concurrent: "{{.Vars.concurrent_count}}"
+  times: 1
+  concurrent: 1
 
 # Feature flags
 flags:

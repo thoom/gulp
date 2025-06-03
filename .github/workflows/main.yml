@@ -50,15 +50,15 @@ jobs:
         with:
           go-version: 1.24.x
 
-      # Build release
+      # Build release using Makefile
       - name: Build project
         if: ${{ steps.tag.outputs.value != '' }}
         env:
           RELEASE_VERSION: ${{ steps.tag.outputs.value }}
         run: |
-          ./scripts/build.sh
+          make build-all
 
-      # Deploy Docker release
+      # Deploy Docker release using Makefile
       - name: Deploy Docker image
         if: ${{ steps.tag.outputs.value != '' }}
         env:
@@ -69,7 +69,7 @@ jobs:
           GH_USER: ${{ github.actor }}
           GH_PASS: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./scripts/deploy.sh
+          make docker-deploy
 
       - name: Upload Linux 386
         id: upload-release-l386
@@ -79,7 +79,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./gulp.linux-386.tar.gz
+          asset_path: ./build/gulp.linux-386.tar.gz
           asset_name: gulp.linux-386.tar.gz
           asset_content_type: application/gzip
 
@@ -91,7 +91,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./gulp.linux-amd64.tar.gz
+          asset_path: ./build/gulp.linux-amd64.tar.gz
           asset_name: gulp.linux-amd64.tar.gz
           asset_content_type: application/gzip
 
@@ -103,7 +103,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./gulp.darwin-amd64.tar.gz
+          asset_path: ./build/gulp.darwin-amd64.tar.gz
           asset_name: gulp.darwin-amd64.tar.gz
           asset_content_type: application/gzip
 
@@ -115,7 +115,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./gulp.darwin-arm64.tar.gz
+          asset_path: ./build/gulp.darwin-arm64.tar.gz
           asset_name: gulp.darwin-arm64.tar.gz
           asset_content_type: application/gzip
 
@@ -127,6 +127,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./gulp.windows.zip
+          asset_path: ./build/gulp.windows.zip
           asset_name: gulp.windows.zip
           asset_content_type: application/zip
