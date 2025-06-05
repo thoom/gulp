@@ -1,0 +1,4 @@
+name=Alice Johnson
+email=alice.johnson@example.com
+title=Senior Developer
+resume=@examples/sample-resume.txt 

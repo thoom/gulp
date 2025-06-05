@@ -1,0 +1,7 @@
+name=John Smith
+email=john.smith@example.com
+age=35
+department=Engineering
+active=true
+bio=Software engineer with 10+ years of experience in web development
+preferences=json,api,testing 

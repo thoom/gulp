@@ -1,0 +1,553 @@
+package ui
+
+import (
+	"bytes"
+	"embed"
+	"encoding/json"
+	"fmt"
+	"io/fs"
+	"net/http"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/ghodss/yaml"
+)
+
+//go:embed static/*
+var staticFiles embed.FS
+
+// Template represents a discovered GULP configuration template
+type Template struct {
+	Path      string    `json:"path"`
+	Name      string    `json:"name"`
+	Content   string    `json:"content"`
+	Variables []string  `json:"variables"`
+	Folder    string    `json:"folder"`
+	Size      int64     `json:"size"`
+	Modified  time.Time `json:"modified"`
+	IsValid   bool      `json:"is_valid"`
+	Error     string    `json:"error,omitempty"`
+}
+
+// TemplateRequest represents a request to execute a template
+type TemplateRequest struct {
+	TemplatePath string            `json:"template_path"`
+	Variables    map[string]string `json:"variables"`
+	URL          string            `json:"url,omitempty"`
+	Method       string            `json:"method,omitempty"`
+}
+
+// ExecutionResponse represents the response from executing a template
+type ExecutionResponse struct {
+	Success        bool              `json:"success"`
+	StatusCode     *int              `json:"status_code,omitempty"`
+	Headers        map[string]string `json:"headers,omitempty"`
+	Body           string            `json:"body"`
+	Error          string            `json:"error,omitempty"`
+	Duration       float64           `json:"duration"`
+	RequestURL     string            `json:"request_url"`
+	RequestHeaders map[string]string `json:"request_headers,omitempty"`
+}
+
+// Server represents the UI web server
+type Server struct {
+	port       string
+	templates  []Template
+	workingDir string
+	gulpBinary string // Path to the gulp binary to execute
+}
+
+// StartServer initializes and starts the web UI server
+func StartServer(address string) error {
+	server := &Server{}
+
+	// Parse address
+	if err := server.parseAddress(address); err != nil {
+		return fmt.Errorf("invalid address '%s': %w", address, err)
+	}
+
+	// Get current executable path to use for GULP execution
+	execPath, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("could not get current executable path: %w", err)
+	}
+	server.gulpBinary = execPath
+
+	// Get working directory
+	workingDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("could not get working directory: %w", err)
+	}
+	server.workingDir = workingDir
+
+	// Discover templates
+	if err := server.discoverTemplates(); err != nil {
+		return fmt.Errorf("could not discover templates: %w", err)
+	}
+
+	// Setup routes
+	server.setupRoutes()
+
+	// Start server
+	fmt.Printf("🚀 Visual GULP starting...\n")
+	fmt.Printf("📁 Scanning for templates in: %s\n", workingDir)
+	fmt.Printf("📋 Found %d templates\n", len(server.templates))
+	fmt.Printf("🌐 Server running at: http://%s\n", server.getFullAddress())
+	fmt.Printf("🔗 Open your browser to the URL above\n")
+
+	return http.ListenAndServe(server.getFullAddress(), nil)
+}
+
+// parseAddress parses the address flag into host:port
+func (s *Server) parseAddress(address string) error {
+	if address == "" {
+		s.port = "8080"
+		return nil
+	}
+
+	// If no colon, treat as port only
+	if !strings.Contains(address, ":") {
+		s.port = address
+		return nil
+	}
+
+	// Full address provided
+	parts := strings.Split(address, ":")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid format, expected 'port' or 'host:port'")
+	}
+
+	s.port = parts[1]
+	return nil
+}
+
+// getFullAddress returns the full address for the server
+func (s *Server) getFullAddress() string {
+	return "localhost:" + s.port
+}
+
+// discoverTemplates scans the working directory for YAML/YML templates
+func (s *Server) discoverTemplates() error {
+	s.templates = []Template{}
+
+	return filepath.WalkDir(s.workingDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Get relative path for checking
+		relPath, err := filepath.Rel(s.workingDir, path)
+		if err != nil {
+			relPath = path
+		}
+
+		// Skip hidden directories and files
+		if strings.HasPrefix(d.Name(), ".") {
+			if d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		// Skip common directories that shouldn't contain templates
+		if d.IsDir() {
+			skipDirs := []string{"node_modules", "build", "dist", "vendor", ".git", ".svn", "target", "bin"}
+			for _, skipDir := range skipDirs {
+				if d.Name() == skipDir || strings.Contains(relPath, skipDir) {
+					return filepath.SkipDir
+				}
+			}
+		}
+
+		// Only process YAML/YML files
+		if !d.IsDir() && (strings.HasSuffix(strings.ToLower(d.Name()), ".yml") || strings.HasSuffix(strings.ToLower(d.Name()), ".yaml")) {
+			template, err := s.parseTemplate(path)
+			if err != nil {
+				// Still add invalid templates but mark them as such
+				template = Template{
+					Path:    relPath,
+					Name:    d.Name(),
+					Folder:  filepath.Dir(relPath),
+					IsValid: false,
+					Error:   err.Error(),
+				}
+			}
+			s.templates = append(s.templates, template)
+		}
+
+		return nil
+	})
+}
+
+// parseTemplate reads and parses a template file
+func (s *Server) parseTemplate(path string) (Template, error) {
+	// Read file
+	content, err := os.ReadFile(path)
+	if err != nil {
+		return Template{}, fmt.Errorf("could not read file: %w", err)
+	}
+
+	// Get file info
+	info, err := os.Stat(path)
+	if err != nil {
+		return Template{}, fmt.Errorf("could not get file info: %w", err)
+	}
+
+	// Parse YAML to validate
+	var config interface{}
+	if err := yaml.Unmarshal(content, &config); err != nil {
+		return Template{}, fmt.Errorf("invalid YAML: %w", err)
+	}
+
+	// Extract template variables
+	variables := extractTemplateVariables(string(content))
+
+	// Get relative path for display
+	relPath, err := filepath.Rel(s.workingDir, path)
+	if err != nil {
+		relPath = path
+	}
+
+	return Template{
+		Path:      relPath,
+		Name:      info.Name(),
+		Content:   string(content),
+		Variables: variables,
+		Folder:    filepath.Dir(relPath),
+		Size:      info.Size(),
+		Modified:  info.ModTime(),
+		IsValid:   true,
+	}, nil
+}
+
+// extractTemplateVariables finds all {{.Vars.variableName}} patterns in content
+func extractTemplateVariables(content string) []string {
+	// Regex to match {{.Vars.variableName}} patterns
+	re := regexp.MustCompile(`\{\{\.Vars\.([a-zA-Z_][a-zA-Z0-9_]*)\}\}`)
+	matches := re.FindAllStringSubmatch(content, -1)
+
+	// Extract unique variable names
+	varMap := make(map[string]bool)
+	for _, match := range matches {
+		if len(match) > 1 {
+			varMap[match[1]] = true
+		}
+	}
+
+	// Convert to sorted slice
+	variables := make([]string, 0, len(varMap))
+	for varName := range varMap {
+		variables = append(variables, varName)
+	}
+	sort.Strings(variables)
+
+	return variables
+}
+
+// setupRoutes configures HTTP routes
+func (s *Server) setupRoutes() {
+	// API routes
+	http.HandleFunc("/api/templates", s.handleTemplates)
+	http.HandleFunc("/api/template/", s.handleTemplate)
+	http.HandleFunc("/api/execute", s.handleExecute)
+	http.HandleFunc("/api/health", s.handleHealth)
+
+	// Static file serving for React app
+	// Serve React's static assets (JS, CSS files)
+	staticAssets, err := fs.Sub(staticFiles, "static/static")
+	if err == nil {
+		fileServer := http.FileServer(http.FS(staticAssets))
+		http.Handle("/static/", http.StripPrefix("/static/", fileServer))
+
+		// Serve React app for all other routes (SPA routing)
+		http.HandleFunc("/", s.handleReactApp)
+	} else {
+		// Fallback to simple HTML if embed fails (development)
+		http.HandleFunc("/", s.handleRoot)
+	}
+}
+
+// handleTemplates returns the list of discovered templates
+func (s *Server) handleTemplates(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(s.templates); err != nil {
+		http.Error(w, "Failed to encode templates", http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleTemplate returns a specific template by path
+func (s *Server) handleTemplate(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Extract template path from URL
+	templatePath := strings.TrimPrefix(r.URL.Path, "/api/template/")
+	if templatePath == "" {
+		http.Error(w, "Template path required", http.StatusBadRequest)
+		return
+	}
+
+	// Find template
+	var template *Template
+	for i := range s.templates {
+		if s.templates[i].Path == templatePath {
+			template = &s.templates[i]
+			break
+		}
+	}
+
+	if template == nil {
+		http.Error(w, "Template not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(template); err != nil {
+		http.Error(w, "Failed to encode template", http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleExecute executes a template with provided variables
+func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var req TemplateRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		s.sendError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// Execute template with GULP integration
+	response := s.executeTemplate(req)
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(response); err != nil {
+		s.sendError(w, "Failed to encode response", http.StatusInternalServerError)
+	}
+}
+
+// executeTemplate integrates with actual GULP execution
+func (s *Server) executeTemplate(req TemplateRequest) ExecutionResponse {
+	start := time.Now()
+
+	// Build the GULP command arguments
+	args := []string{}
+
+	// Add template variables
+	for key, value := range req.Variables {
+		args = append(args, "--var", fmt.Sprintf("%s=%s", key, value))
+	}
+
+	// Add method if specified
+	if req.Method != "" {
+		args = append(args, "--method", req.Method)
+	}
+
+	// Add UI output mode for structured parsing
+	args = append(args, "--output", "ui")
+
+	// Add config file
+	args = append(args, "--config", req.TemplatePath)
+
+	// Add URL if specified, otherwise use URL from config
+	if req.URL != "" {
+		args = append(args, req.URL)
+	}
+
+	// Execute GULP command (use relative path to ensure we use the correct binary)
+	cmd := exec.Command(s.gulpBinary, args...)
+	cmd.Dir = s.workingDir
+
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+
+	err := cmd.Run()
+	duration := time.Since(start).Seconds()
+
+	if err != nil {
+		// Handle execution error
+		errorMsg := stderr.String()
+		if errorMsg == "" {
+			errorMsg = err.Error()
+		}
+
+		return ExecutionResponse{
+			Success:    false,
+			Body:       stdout.String(), // Include any partial output
+			Error:      fmt.Sprintf("GULP execution failed: %s", errorMsg),
+			Duration:   duration,
+			RequestURL: req.URL,
+		}
+	}
+
+	// Parse successful response with UI output
+	output := stdout.String()
+	return s.parseUIOutput(output, duration, req.URL)
+}
+
+// parseUIOutput parses GULP UI output to extract request/response details
+func (s *Server) parseUIOutput(output string, duration float64, fallbackURL string) ExecutionResponse {
+	// Parse the JSON output
+	var uiResponse struct {
+		Status     int     `json:"status"`
+		StatusText string  `json:"status_text"`
+		Duration   float64 `json:"duration"`
+		Request    struct {
+			Method  string            `json:"method"`
+			URL     string            `json:"url"`
+			Headers map[string]string `json:"headers"`
+		} `json:"request"`
+		Response struct {
+			Headers map[string]string `json:"headers"`
+			Body    string            `json:"body"`
+		} `json:"response"`
+	}
+
+	// Try to parse JSON
+	if err := json.Unmarshal([]byte(output), &uiResponse); err != nil {
+		// If JSON parsing fails, return error response
+		return ExecutionResponse{
+			Success:    false,
+			Body:       output, // Include raw output for debugging
+			Error:      fmt.Sprintf("Failed to parse GULP output: %v", err),
+			Duration:   duration,
+			RequestURL: fallbackURL,
+		}
+	}
+
+	// Format request URL with method for display
+	displayURL := uiResponse.Request.URL
+	if uiResponse.Request.Method != "" {
+		displayURL = fmt.Sprintf("%s %s", uiResponse.Request.Method, uiResponse.Request.URL)
+	}
+
+	return ExecutionResponse{
+		Success:        true,
+		StatusCode:     &uiResponse.Status,
+		Body:           uiResponse.Response.Body,
+		Duration:       uiResponse.Duration, // Use duration from GULP output
+		RequestURL:     displayURL,
+		Headers:        uiResponse.Response.Headers,
+		RequestHeaders: uiResponse.Request.Headers,
+	}
+}
+
+// handleHealth provides a health check endpoint
+func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	response := map[string]interface{}{
+		"status":      "healthy",
+		"templates":   len(s.templates),
+		"working_dir": s.workingDir,
+		"timestamp":   time.Now(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleReactApp serves the React application
+func (s *Server) handleReactApp(w http.ResponseWriter, r *http.Request) {
+	// Handle API routes first
+	if strings.HasPrefix(r.URL.Path, "/api/") {
+		http.NotFound(w, r)
+		return
+	}
+
+	// Serve index.html for all routes (SPA routing)
+	indexFile, err := staticFiles.ReadFile("static/index.html")
+	if err != nil {
+		// Fallback to simple HTML
+		s.handleRoot(w, r)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.Write(indexFile)
+}
+
+// handleRoot serves a simple HTML page for fallback
+func (s *Server) handleRoot(w http.ResponseWriter, r *http.Request) {
+	html := `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Visual GULP</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        h1 { color: #333; border-bottom: 2px solid #007acc; padding-bottom: 10px; }
+        .endpoint { background: #f8f9fa; padding: 15px; margin: 10px 0; border-radius: 4px; border-left: 4px solid #007acc; }
+        .method { background: #007acc; color: white; padding: 2px 6px; border-radius: 3px; font-size: 12px; }
+        code { background: #e9ecef; padding: 2px 6px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Visual GULP</h1>
+        <p>Welcome to Visual GULP! The React frontend will be added soon.</p>
+        
+        <h2>Available API Endpoints</h2>
+        
+        <div class="endpoint">
+            <span class="method">GET</span> <code>/api/templates</code>
+            <p>List all discovered templates with metadata</p>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method">GET</span> <code>/api/template/{path}</code>
+            <p>Get specific template content and variables</p>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method">POST</span> <code>/api/execute</code>
+            <p>Execute GULP with template and variables</p>
+        </div>
+        
+        <div class="endpoint">
+            <span class="method">GET</span> <code>/api/health</code>
+            <p>Health check and server status</p>
+        </div>
+        
+        <h2>Template Discovery</h2>
+        <p>Server is scanning: <code>` + s.workingDir + `</code></p>
+        <p>Found <strong>` + fmt.Sprintf("%d", len(s.templates)) + `</strong> templates</p>
+        
+        <p><a href="/api/templates">View Templates JSON</a> | <a href="/api/health">Health Check</a></p>
+    </div>
+</body>
+</html>`
+
+	w.Header().Set("Content-Type", "text/html")
+	w.Write([]byte(html))
+}
+
+// sendError sends a JSON error response
+func (s *Server) sendError(w http.ResponseWriter, message string, statusCode int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	json.NewEncoder(w).Encode(map[string]string{"error": message})
+}

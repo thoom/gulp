@@ -1,0 +1,92 @@
+# GULP v1.0 Configuration Example (Phase 2 Clean Structure)
+# This file demonstrates all available configuration options
+
+# Basic connection settings
+url: https://api.example.com
+method: POST                     # Default HTTP method for requests
+timeout: "60"                    # Request timeout in seconds
+output: verbose                  # Output mode: body, status, verbose
+
+# Request headers (applied to all requests)
+headers:
+  Authorization: Bearer your-api-token-here
+  User-Agent: GULP/1.0
+  X-API-Version: "v1"
+  Content-Type: application/json
+
+# Phase 2: Clean authentication structure
+auth:
+  basic:
+    username: api-user
+    password: secret-password
+  
+  certificate:
+    cert: /path/to/client-cert.pem
+    key: /path/to/client-key.pem
+    ca: /path/to/custom-ca.pem
+  
+  # Alternative: Inline PEM content
+  # certificate:
+  #   cert: |
+  #     -----BEGIN CERTIFICATE-----
+  #     ... certificate content ...
+  #     -----END CERTIFICATE-----
+  #   key: |
+  #     -----BEGIN PRIVATE KEY-----
+  #     ... private key content ...
+  #     -----END PRIVATE KEY-----
+
+# Data input configuration
+data:
+  # Request body from file or inline content
+  body: |
+    {
+      "message": "Hello from GULP v1.0",
+      "timestamp": "{{.timestamp}}",
+      "environment": "{{.env}}"
+    }
+  
+  # Alternative: Template-based requests
+  # template: "@templates/request.json"
+  
+  # Template variables (used with template or inline body)
+  variables:
+    timestamp: "2024-01-15T10:30:00Z"
+    env: production
+    user_id: "12345"
+    
+  # Form data (alternative to JSON body)
+  # form:
+  #   username: john.doe
+  #   email: john@example.com
+  #   department: engineering
+  
+  # Process stdin as form data
+  form_mode: false
+
+# Request-specific settings
+request:
+  insecure: false                # Disable TLS certificate verification
+  follow_redirects: true         # Follow HTTP redirects
+
+# Load testing configuration
+repeat:
+  times: 1                       # Number of requests to make
+  concurrent: 1                  # Number of concurrent connections
+
+# Phase 2: Clean boolean flags (no more strings!)
+flags:
+  follow_redirects: true         # Real boolean
+  use_color: true                # Real boolean
+  verify_tls: true               # Real boolean
+
+# Legacy compatibility - still supported but prefer new 'auth' structure
+# client_auth:
+#   username: api-user
+#   password: secret-password
+#   cert: /path/to/client-cert.pem
+#   key: /path/to/client-key.pem
+#   ca: /path/to/custom-ca.pem
+
+# Legacy display setting (use 'output' instead)
+# display: verbose 

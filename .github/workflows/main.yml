@@ -33,7 +33,7 @@ jobs:
           if_false: ${{ steps.bumpr.outputs.next_version }}
 
       # Create release.
-      - uses: actions/create-release@v1
+      - uses: actions/create-release@v1.1.4
         id: create_release
         if: ${{ steps.tag.outputs.value != '' }}
         env:
@@ -50,15 +50,15 @@ jobs:
         with:
           go-version: 1.24.x
 
-      # Build release
+      # Build release using Makefile
       - name: Build project
         if: ${{ steps.tag.outputs.value != '' }}
         env:
           RELEASE_VERSION: ${{ steps.tag.outputs.value }}
         run: |
-          ./scripts/build.sh
+          make build-all
 
-      # Deploy Docker release
+      # Deploy Docker release using Makefile
       - name: Deploy Docker image
         if: ${{ steps.tag.outputs.value != '' }}
         env:
@@ -69,64 +69,64 @@ jobs:
           GH_USER: ${{ github.actor }}
           GH_PASS: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          ./scripts/deploy.sh
+          make docker-deploy
 
       - name: Upload Linux 386
         id: upload-release-l386
         if: ${{ steps.tag.outputs.value != '' }}
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./gulp.linux-386.tar.gz
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/gulp.linux-386.tar.gz
           asset_name: gulp.linux-386.tar.gz
           asset_content_type: application/gzip
 
       - name: Upload Linux amd64
         id: upload-release-l64
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v1.0.2
         if: ${{ steps.tag.outputs.value != '' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./gulp.linux-amd64.tar.gz
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/gulp.linux-amd64.tar.gz
           asset_name: gulp.linux-amd64.tar.gz
           asset_content_type: application/gzip
 
       - name: Upload Darwin amd64
         id: upload-release-d64
         if: ${{ steps.tag.outputs.value != '' }}
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./gulp.darwin-amd64.tar.gz
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/gulp.darwin-amd64.tar.gz
           asset_name: gulp.darwin-amd64.tar.gz
           asset_content_type: application/gzip
 
       - name: Upload Darwin arm64
         id: upload-release-dArm64
         if: ${{ steps.tag.outputs.value != '' }}
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./gulp.darwin-arm64.tar.gz
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/gulp.darwin-arm64.tar.gz
           asset_name: gulp.darwin-arm64.tar.gz
           asset_content_type: application/gzip
 
       - name: Upload Windows
         id: upload-release-w
         if: ${{ steps.tag.outputs.value != '' }}
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v1.0.2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps
-          asset_path: ./gulp.windows.zip
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/gulp.windows.zip
           asset_name: gulp.windows.zip
           asset_content_type: application/zip

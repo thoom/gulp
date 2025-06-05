@@ -4,18 +4,16 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-	"time"
 
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
 
-var defaultVersion string
+var defaultVersion = "dev-SNAPSHOT"
 
 // DefaultVersion references the current CLI revision
-func init() {
-	defaultVersion = time.Now().Format("20060102.0304PM.MST") + "-SNAPSHOT"
-}
+// Note: Use build-time ldflags to set buildVersion for proper versioning
+// Example: go build -ldflags "-X github.com/thoom/gulp/client.buildVersion=1.0.0-SNAPSHOT"
 
 // BuildURL will compute the final URL to use in the request
 func BuildURL(path string, configURL string) (string, error) {

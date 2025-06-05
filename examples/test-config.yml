@@ -1,0 +1,36 @@
+# Simple test configuration for URL and header templating
+url: https://api.{{.Vars.environment}}.example.com/{{.Vars.endpoint}}
+method: GET
+timeout: "30s"
+output: verbose
+
+# Dynamic headers with environment-specific tokens
+headers:
+  Authorization: "Bearer {{.Vars.api_token}}"
+  Content-Type: application/json
+  User-Agent: "GULP/1.0 ({{.Vars.environment}})"
+  X-Request-ID: "{{.Vars.request_id}}"
+  X-Client-Version: "{{.Vars.client_version}}"
+  X-Environment: "{{.Vars.environment}}"
+
+# Authentication (no template variables for now)
+auth:
+  basic:
+    username: "testuser"
+    password: "testpass"
+
+# Request-specific settings
+request:
+  insecure: false
+  follow_redirects: true
+
+# Load testing configuration
+repeat:
+  times: 1
+  concurrent: 1
+
+# Feature flags
+flags:
+  follow_redirects: true
+  use_color: true
+  verify_tls: true 

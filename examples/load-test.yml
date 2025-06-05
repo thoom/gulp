@@ -1,0 +1,33 @@
+# Comprehensive load testing configuration
+url: https://api.example.com/{{.Vars.endpoint}}
+method: "{{.Vars.method}}"
+output: status
+
+headers:
+  Authorization: "Bearer {{.Vars.token}}"
+  Content-Type: application/json
+  X-Load-Test: "true"
+  X-Test-ID: "{{.Vars.test_id}}"
+
+data:
+  body: |
+    {
+      "test_data": {
+        "id": "{{.Vars.test_id}}",
+        "timestamp": "{{.Vars.timestamp}}",
+        "iteration": "{{.Vars.iteration}}",
+        "payload_size": "{{.Vars.payload_size}}"
+      },
+      "metadata": {
+        "test_type": "load_test",
+        "concurrent_users": {{.Vars.concurrent}},
+        "total_requests": {{.Vars.total}}
+      }
+    }
+
+repeat:
+  times: "{{.Vars.total}}"
+  concurrent: "{{.Vars.concurrent}}"
+
+request:
+  follow_redirects: true 
