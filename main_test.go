@@ -1460,7 +1460,7 @@ func TestRunGulpBasicFlow(t *testing.T) {
 	}()
 
 	// Test with invalid URL to avoid actual HTTP requests
-	err := runGulp([]string{})
+	err := runGulp(nil, []string{})
 	assert.Error(err) // Should error because no URL provided
 	assert.Contains(err.Error(), "need a URL")
 }

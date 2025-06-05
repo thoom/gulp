@@ -1,0 +1,5 @@
+url: https://httpbin.org/post
+method: POST
+output: ui
+data:
+  body: "{\"test\": \"data\"}"

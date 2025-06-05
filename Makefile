@@ -5,7 +5,7 @@ BINARY_NAME=gulp
 # Generate timestamp in the format: YYYYMMDD.HHMMAM/PM.TZ-SNAPSHOT
 SNAPSHOT_VERSION=$(shell date '+%Y%m%d.%I%M%p.%Z')-SNAPSHOT
 VERSION?=$(SNAPSHOT_VERSION)
-LDFLAGS=-ldflags "-X github.com/thoom/gulp/client.buildVersion=$(VERSION)"
+LDFLAGS=-X github.com/thoom/gulp/client.buildVersion=$(VERSION)
 
 # Docker variables
 IMAGE_NAME?=gulp
@@ -19,17 +19,41 @@ BUILD_DIR=./build
 
 # Default target
 .PHONY: all
-all: build
+all: frontend build
+
+# Frontend build
+.PHONY: frontend
+frontend: frontend-deps frontend-build
+
+.PHONY: frontend-deps
+frontend-deps:
+	@echo "Installing frontend dependencies..."
+	cd ui/frontend && npm install
+
+.PHONY: frontend-build
+frontend-build:
+	@echo "Building React frontend..."
+	cd ui/frontend && npm run build
+	@echo "Copying frontend build to static directory..."
+	@mkdir -p ui/static
+	@cp -r ui/frontend/build/* ui/static/
+
+.PHONY: frontend-dev
+frontend-dev:
+	@echo "Starting frontend development server..."
+	cd ui/frontend && npm start
 
 # Build for current platform
 .PHONY: build
-build:
-	go build $(LDFLAGS) -o $(BINARY_NAME)
+build: frontend
+	@echo "Building $(BINARY_NAME)..."
+	@mkdir -p $(BUILD_DIR)
+	CGO_ENABLED=0 go build -ldflags="$(LDFLAGS)" -o $(BUILD_DIR)/$(BINARY_NAME) $(MAIN_PATH)
 
 # Build snapshot version (explicit snapshot with timestamp)
 .PHONY: snapshot
-snapshot:
-	go build -ldflags "-X github.com/thoom/gulp/client.buildVersion=$(SNAPSHOT_VERSION)" -o $(BINARY_NAME)
+snapshot: frontend
+	go build -ldflags="-X github.com/thoom/gulp/client.buildVersion=$(SNAPSHOT_VERSION)" -o $(BINARY_NAME)
 
 # Build with custom version
 .PHONY: build-version
@@ -169,32 +193,38 @@ release: clean test build-all docker-deploy
 help:
 	@echo "GULP Makefile - v1.0+ Standard Build System"
 	@echo ""
+	@echo "Frontend Targets:"
+	@echo "  frontend        - Build React frontend and embed in Go binary"
+	@echo "  frontend-deps   - Install frontend dependencies"
+	@echo "  frontend-build  - Build React frontend production bundle"
+	@echo "  frontend-dev    - Start frontend development server"
+	@echo ""
 	@echo "Build Targets:"
-	@echo "  build         - Build for current platform with timestamp snapshot version"
-	@echo "  snapshot      - Build with explicit timestamp snapshot version"
-	@echo "  build-version - Build with custom version (usage: make build-version V=1.2.3)"
-	@echo "  build-all     - Build for all platforms (usage: make build-all RELEASE_VERSION=1.2.3)"
+	@echo "  build           - Build binary with embedded frontend"
+	@echo "  snapshot        - Build with explicit timestamp snapshot version"
+	@echo "  build-version   - Build with custom version (usage: make build-version V=1.2.3)"
+	@echo "  build-all       - Build for all platforms (usage: make build-all RELEASE_VERSION=1.2.3)"
 	@echo ""
 	@echo "Docker Targets:"
-	@echo "  docker-build  - Build Docker image (usage: make docker-build RELEASE_VERSION=1.2.3)"
-	@echo "  docker-deploy - Build and deploy Docker image (usage: make docker-deploy RELEASE_VERSION=1.2.3)"
-	@echo "  docker-clean  - Remove Docker images"
+	@echo "  docker-build    - Build Docker image (usage: make docker-build RELEASE_VERSION=1.2.3)"
+	@echo "  docker-deploy   - Build and deploy Docker image (usage: make docker-deploy RELEASE_VERSION=1.2.3)"
+	@echo "  docker-clean    - Remove Docker images"
 	@echo ""
 	@echo "Development Targets:"
-	@echo "  test          - Run tests"
-	@echo "  test-coverage - Run tests with coverage report"
-	@echo "  run           - Build and run the application"
-	@echo "  version       - Build and show version"
-	@echo "  deps          - Install/update dependencies"
-	@echo "  fmt           - Format code"
-	@echo "  lint          - Run linter (requires golangci-lint)"
+	@echo "  test            - Run tests"
+	@echo "  test-coverage   - Run tests with coverage report"
+	@echo "  run             - Build and run the application"
+	@echo "  version         - Build and show version"
+	@echo "  deps            - Install/update dependencies"
+	@echo "  fmt             - Format code"
+	@echo "  lint            - Run linter (requires golangci-lint)"
 	@echo ""
 	@echo "Utility Targets:"
-	@echo "  clean         - Remove build artifacts"
+	@echo "  clean           - Remove build artifacts"
 	@echo "  show-snapshot-version - Show what snapshot version would be generated"
 	@echo ""
 	@echo "Release Pipeline:"
-	@echo "  release       - Full release pipeline: clean, test, build-all, docker-deploy"
+	@echo "  release         - Full release pipeline: clean, test, build-all, docker-deploy"
 	@echo ""
 	@echo "Environment Variables:"
 	@echo "  RELEASE_VERSION - Version for releases (required for build-all, docker-*)"

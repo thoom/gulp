@@ -21,6 +21,7 @@ import (
 	"github.com/thoom/gulp/form"
 	"github.com/thoom/gulp/output"
 	"github.com/thoom/gulp/template"
+	"github.com/thoom/gulp/ui"
 )
 
 // stringSlice implements pflag.Value interface for string arrays
@@ -83,6 +84,12 @@ var (
 
 	// Version flag
 	versionFlag bool
+
+	// UI flags
+	uiPort string
+
+	// UI output mode state
+	lastRequestHeaders map[string][]string // Store request headers for UI mode
 )
 
 var rootCmd = &cobra.Command{
@@ -136,7 +143,7 @@ Request Options:
   -u, --url URL            Request URL (alternative to positional)
 
 Output & Display:
-  -o, --output MODE         Output mode: body, status, verbose
+  -o, --output MODE         Output mode: body, status, verbose, ui
   -n, --no-color           Disable colored output
 
 Redirect Options:
@@ -149,6 +156,7 @@ Load Testing:
 
 Other Options:
   -v, --version            Show version information
+  -ui, --ui               Start web UI server on specified port (e.g., --ui 8080)
 
 Global Flags:
   -h, --help               Help for any command
@@ -159,7 +167,7 @@ Additional help topics:
 Use "gulp [command] --help" for more information about a command.
 `,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return runGulp(args)
+		return runGulp(cmd, args)
 	},
 }
 
@@ -173,7 +181,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&configFile, "config", "c", ".gulp.yml", "Configuration file (.gulp.yml)")
 
 	// === OUTPUT & DISPLAY ===
-	rootCmd.Flags().StringVar(&outputMode, "output", "", "Output mode: body, status, verbose")
+	rootCmd.Flags().StringVar(&outputMode, "output", "", "Output mode: body, status, verbose, ui")
 	rootCmd.Flags().BoolVar(&noColor, "no-color", false, "Disable colored output")
 
 	// === DATA INPUT ===
@@ -207,6 +215,7 @@ func init() {
 
 	// === OTHER ===
 	rootCmd.Flags().BoolVar(&versionFlag, "version", false, "Show version information")
+	rootCmd.Flags().StringVar(&uiPort, "ui", "", "Start web UI server on specified port (e.g., --ui 8080)")
 
 	// Mark mutually exclusive flags
 	rootCmd.MarkFlagsMutuallyExclusive("follow-redirects", "no-redirects")
@@ -290,6 +299,7 @@ func customHelpFunc(cmd *cobra.Command, args []string) {
 	// Other Options
 	fmt.Printf("Other Options:\n")
 	printFlag(cmd, "version", "")
+	printFlag(cmd, "ui", "")
 }
 
 // printFlag formats and prints a flag with its usage
@@ -315,10 +325,15 @@ func main() {
 }
 
 // runGulp contains the main application logic
-func runGulp(args []string) error {
+func runGulp(cmd *cobra.Command, args []string) error {
 	// Handle version flag first
 	if versionFlag {
 		return handleVersionFlag()
+	}
+
+	// Handle UI flag
+	if uiPort != "" {
+		return startUIServer(uiPort)
 	}
 
 	// Load configuration
@@ -357,6 +372,11 @@ func runGulp(args []string) error {
 	followRedirect := shouldFollowRedirects()
 
 	return executeRequestsWithConcurrency(url, body, headers, followRedirect)
+}
+
+// startUIServer is a wrapper around ui.StartServer
+func startUIServer(address string) error {
+	return ui.StartServer(address)
 }
 
 // applyConfigurationDefaults applies config values when flags weren't explicitly set
@@ -415,7 +435,7 @@ func processDisplayFlags() {
 	if outputMode != "" {
 		// outputMode is already set, just validate it
 		switch strings.ToLower(outputMode) {
-		case "body", "status", "verbose":
+		case "body", "status", "verbose", "ui":
 			return // Valid output mode
 		default:
 			outputMode = "body" // Default to body for invalid modes
@@ -800,9 +820,12 @@ func executeHTTPRequest(url string, body []byte, headers map[string]string, iter
 		return fmt.Errorf("could not create request: %w", err)
 	}
 
-	// Print request if verbose
+	// Print request if verbose or store headers for UI
 	if outputMode == "verbose" || repeatTimes > 1 {
 		printRequest(iteration, url, req.Header, req.ContentLength, req.Proto, output.Out)
+	} else if outputMode == "ui" {
+		// Store headers for UI mode even when not verbose
+		storeRequestHeaders(req.Header)
 	}
 
 	// Execute request
@@ -871,6 +894,22 @@ func convertJSONBody(body []byte, headers map[string]string) ([]byte, error) {
 }
 
 func printRequest(iteration int, url string, headers map[string][]string, contentLength int64, protocol string, bo *output.BuffOut) {
+	// Store request headers for UI output mode
+	if outputMode == "ui" {
+		// Store a copy of the headers for later use in handleResponse
+		requestHeaders := make(map[string][]string)
+		for k, v := range headers {
+			requestHeaders[k] = v
+		}
+		// Add enriched headers
+		enriched := enrichHeaders(headers, contentLength)
+		for k, v := range enriched {
+			requestHeaders[k] = v
+		}
+		// Use global variable to store request headers (will be declared in main)
+		storeRequestHeaders(requestHeaders)
+	}
+
 	if outputMode != "verbose" {
 		printIterationPrefix(iteration, bo)
 		return
@@ -886,6 +925,11 @@ func printRequest(iteration int, url string, headers map[string][]string, conten
 	requestInfo := buildRequestInfo(url, protocol, headers, contentLength)
 	bo.PrintBlock(requestInfo)
 	fmt.Fprintln(bo.Out)
+}
+
+// storeRequestHeaders stores request headers for UI mode
+func storeRequestHeaders(headers map[string][]string) {
+	lastRequestHeaders = headers
 }
 
 // printIterationPrefix prints the iteration number for non-verbose mode
@@ -961,6 +1005,46 @@ func handleResponse(resp *http.Response, duration float64, bo *output.BuffOut) {
 	switch strings.ToLower(outputMode) {
 	case "status":
 		fmt.Fprintln(bo.Out, resp.StatusCode)
+		return
+	case "ui":
+		// Structured JSON output for UI parsing
+		uiResponse := map[string]interface{}{
+			"status":      resp.StatusCode,
+			"status_text": resp.Status,
+			"duration":    duration,
+			"request": map[string]interface{}{
+				"method": method,
+				"url":    resp.Request.URL.String(),
+				"headers": func() map[string]string {
+					headers := make(map[string]string)
+					if lastRequestHeaders != nil {
+						for k, v := range lastRequestHeaders {
+							if len(v) > 0 {
+								headers[k] = v[0] // Take first value
+							}
+						}
+					}
+					return headers
+				}(),
+			},
+			"response": map[string]interface{}{
+				"headers": func() map[string]string {
+					headers := make(map[string]string)
+					for k, v := range resp.Header {
+						headers[k] = v[0] // Take first value
+					}
+					return headers
+				}(),
+				"body": string(body),
+			},
+		}
+
+		jsonBytes, err := json.MarshalIndent(uiResponse, "", "  ")
+		if err != nil {
+			fmt.Fprintf(bo.Out, "Error marshaling JSON: %v\n", err)
+			return
+		}
+		fmt.Fprintln(bo.Out, string(jsonBytes))
 		return
 	case "verbose":
 		bo.PrintStoplight(fmt.Sprintf("Status: %s (%.2f seconds)\n", resp.Status, duration), resp.StatusCode >= 400)
