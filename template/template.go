@@ -19,7 +19,7 @@ func ParseTemplateVars(vars []string) map[string]string {
 	for _, v := range vars {
 		parts := strings.SplitN(v, "=", 2)
 		if len(parts) == 2 {
-			templateVars[parts[0]] = parts[1]
+			templateVars[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
 		}
 	}
 	return templateVars
