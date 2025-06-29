@@ -24,8 +24,21 @@ type UpdateInfo struct {
 	HasUpdate      bool
 }
 
+// httpClient defines the interface for an HTTP client, allowing for mocks.
+type httpClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // CheckForUpdates checks if there's a newer version available on GitHub
 func CheckForUpdates(currentVersion string, timeout time.Duration) (*UpdateInfo, error) {
+	client := &http.Client{
+		Timeout: timeout,
+	}
+	return checkForUpdatesWithClient(currentVersion, client)
+}
+
+// checkForUpdatesWithClient is the testable implementation of CheckForUpdates.
+func checkForUpdatesWithClient(currentVersion string, client httpClient) (*UpdateInfo, error) {
 	// Skip update check for development/snapshot versions
 	if strings.Contains(currentVersion, "SNAPSHOT") || currentVersion == "" {
 		return &UpdateInfo{
@@ -33,10 +46,6 @@ func CheckForUpdates(currentVersion string, timeout time.Duration) (*UpdateInfo,
 			LatestVersion:  "unknown",
 			HasUpdate:      false,
 		}, nil
-	}
-
-	client := &http.Client{
-		Timeout: timeout,
 	}
 
 	// GitHub API endpoint for latest release
