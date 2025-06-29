@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -56,6 +57,12 @@ type ExecutionResponse struct {
 
 // Allows for mocking exec.Command in tests
 var execCommand = exec.Command
+
+var (
+	statusCodeRegex = regexp.MustCompile(`\[GULP\] Status Code: (\d+)`)
+	headersRegex    = regexp.MustCompile(`(?m)^> ([a-zA-Z\-]+): (.*)$`)
+	requestURLRegex = regexp.MustCompile(`\[GULP\] Request URL: (.*)`)
+)
 
 // Server represents the UI web server
 type Server struct {
@@ -286,48 +293,24 @@ func (s *Server) handleTemplates(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(s.templates); err != nil {
-		http.Error(w, "Failed to encode templates", http.StatusInternalServerError)
-		return
-	}
+	json.NewEncoder(w).Encode(s.templates)
 }
 
-// handleTemplate returns a specific template by path
+// handleTemplate returns a single template by its path
 func (s *Server) handleTemplate(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Extract template path from URL
-	templatePath := strings.TrimPrefix(r.URL.Path, "/api/template/")
-	if templatePath == "" {
-		http.Error(w, "Template path required", http.StatusBadRequest)
-		return
-	}
-
-	// Find template
-	var template *Template
-	for i := range s.templates {
-		if s.templates[i].Path == templatePath {
-			template = &s.templates[i]
-			break
+	path := r.URL.Query().Get("path")
+	for _, t := range s.templates {
+		if t.Path == path {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(t)
+			return
 		}
 	}
-
-	if template == nil {
-		http.Error(w, "Template not found", http.StatusNotFound)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(template); err != nil {
-		http.Error(w, "Failed to encode template", http.StatusInternalServerError)
-		return
-	}
+	// If no template is found
+	s.sendError(w, "Template not found", http.StatusNotFound)
 }
 
-// handleExecute executes a template with provided variables
+// handleExecute executes a template with the provided variables
 func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		s.sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -395,48 +378,49 @@ func (s *Server) executeTemplate(req TemplateRequest) ExecutionResponse {
 
 // parseUIOutput parses GULP UI output to extract request/response details
 func (s *Server) parseUIOutput(output string, duration float64, fallbackURL string) ExecutionResponse {
-	// Parse the JSON output
-	var uiResponse struct {
-		Status     int     `json:"status"`
-		StatusText string  `json:"status_text"`
-		Duration   float64 `json:"duration"`
-		Request    struct {
-			Method  string            `json:"method"`
-			URL     string            `json:"url"`
-			Headers map[string]string `json:"headers"`
-		} `json:"request"`
-		Response struct {
-			Headers map[string]string `json:"headers"`
-			Body    string            `json:"body"`
-		} `json:"response"`
+	bodySeparator := "\n---\n"
+
+	// Find the first occurrence of the separator
+	sepIndex := strings.Index(output, bodySeparator)
+	if sepIndex == -1 {
+		return ExecutionResponse{Success: false, Error: "Could not parse GULP output"}
 	}
 
-	// Try to parse JSON
-	if err := json.Unmarshal([]byte(output), &uiResponse); err != nil {
-		// If JSON parsing fails, return error response
-		return ExecutionResponse{
-			Success:    false,
-			Body:       output, // Include raw output for debugging
-			Error:      fmt.Sprintf("Failed to parse GULP output: %v", err),
-			Duration:   duration,
-			RequestURL: fallbackURL,
+	header := output[:sepIndex]
+	body := strings.TrimSpace(output[sepIndex+len(bodySeparator):])
+
+	// Extract status code
+	statusCodeMatch := statusCodeRegex.FindStringSubmatch(header)
+	statusCode := 200 // Default to 200 OK
+	if len(statusCodeMatch) > 1 {
+		if code, err := strconv.Atoi(statusCodeMatch[1]); err == nil {
+			statusCode = code
 		}
 	}
 
-	// Format request URL with method for display
-	displayURL := uiResponse.Request.URL
-	if uiResponse.Request.Method != "" {
-		displayURL = fmt.Sprintf("%s %s", uiResponse.Request.Method, uiResponse.Request.URL)
+	// Extract request URL
+	requestURLMatch := requestURLRegex.FindStringSubmatch(header)
+	requestURL := fallbackURL
+	if len(requestURLMatch) > 1 {
+		requestURL = requestURLMatch[1]
+	}
+
+	// Extract headers
+	headers := make(map[string]string)
+	headerMatches := headersRegex.FindAllStringSubmatch(header, -1)
+	for _, match := range headerMatches {
+		if len(match) == 3 {
+			headers[match[1]] = match[2]
+		}
 	}
 
 	return ExecutionResponse{
-		Success:        true,
-		StatusCode:     &uiResponse.Status,
-		Body:           uiResponse.Response.Body,
-		Duration:       uiResponse.Duration, // Use duration from GULP output
-		RequestURL:     displayURL,
-		Headers:        uiResponse.Response.Headers,
-		RequestHeaders: uiResponse.Request.Headers,
+		Success:    true,
+		StatusCode: &statusCode,
+		Headers:    headers,
+		Body:       body,
+		Duration:   duration,
+		RequestURL: requestURL,
 	}
 }
 

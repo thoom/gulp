@@ -208,6 +208,73 @@ func TestServer_handleExecute(t *testing.T) {
 	}
 }
 
+func TestServer_handleTemplate(t *testing.T) {
+	server, cleanup := newTestServer(t)
+	defer cleanup()
+	server.discoverTemplates()
+
+	t.Run("Get Existing Template", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/api/template?path=test.yml", nil)
+		rr := httptest.NewRecorder()
+		server.handleTemplate(rr, req)
+
+		if status := rr.Code; status != http.StatusOK {
+			t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+		}
+		if !strings.Contains(rr.Body.String(), "url: http://example.com") {
+			t.Errorf("body does not contain template content: got %s", rr.Body.String())
+		}
+	})
+
+	t.Run("Get Non-Existent Template", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", "/api/template?path=notfound.yml", nil)
+		rr := httptest.NewRecorder()
+		server.handleTemplate(rr, req)
+
+		if status := rr.Code; status != http.StatusNotFound {
+			t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusNotFound)
+		}
+	})
+}
+
+func TestServer_handleExecute_ErrorCases(t *testing.T) {
+	server, cleanup := newTestServer(t)
+	defer cleanup()
+
+	t.Run("Invalid JSON Body", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/api/execute", strings.NewReader("{invalid"))
+		rr := httptest.NewRecorder()
+		server.handleExecute(rr, req)
+		if status := rr.Code; status != http.StatusBadRequest {
+			t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusBadRequest)
+		}
+	})
+
+	t.Run("Execution Failure", func(t *testing.T) {
+		originalExecCommand := execCommand
+		defer func() { execCommand = originalExecCommand }()
+
+		execCommand = func(command string, args ...string) *exec.Cmd {
+			// This mock will fail by returning a non-zero exit code.
+			return exec.Command("false") // `false` is a command that always fails
+		}
+
+		reqBody := `{"template_path": "test.yml"}`
+		req, _ := http.NewRequest("POST", "/api/execute", strings.NewReader(reqBody))
+		rr := httptest.NewRecorder()
+		server.handleExecute(rr, req)
+		if status := rr.Code; status != http.StatusOK { // The handler itself returns 200
+			t.Errorf("handler returned wrong status code: got %v want %v", status, http.StatusOK)
+		}
+
+		var execResponse ExecutionResponse
+		json.Unmarshal(rr.Body.Bytes(), &execResponse)
+		if execResponse.Success {
+			t.Error("Expected execution to fail, but it succeeded")
+		}
+	})
+}
+
 func TestServer_handleReactApp(t *testing.T) {
 	server, cleanup := newTestServer(t)
 	defer cleanup()
@@ -258,6 +325,63 @@ func TestServer_handleReactApp(t *testing.T) {
 		}
 		if !strings.Contains(rr.Body.String(), "<title>GULP</title>") {
 			t.Error("Did not serve index.html as a fallback")
+		}
+	})
+}
+
+func TestServer_parseUIOutput(t *testing.T) {
+	server, _ := newTestServer(t)
+	// No cleanup needed as this test doesn't use the filesystem
+
+	t.Run("Successful Parse", func(t *testing.T) {
+		output := `
+[GULP] Request URL: http://test.com/api
+[GULP] Status Code: 201 Created
+> Content-Type: application/json
+---
+{
+  "key": "value"
+}`
+		resp := server.parseUIOutput(output, 0.123, "fallback.url")
+		if !resp.Success {
+			t.Fatal("Expected success, got failure")
+		}
+		if *resp.StatusCode != 201 {
+			t.Errorf("Expected status code 201, got %d", *resp.StatusCode)
+		}
+		if resp.RequestURL != "http://test.com/api" {
+			t.Errorf("Unexpected RequestURL: %s", resp.RequestURL)
+		}
+		// Normalize JSON for comparison to ignore whitespace differences
+		expectedBody := `{"key":"value"}`
+		gotBody := strings.Join(strings.Fields(resp.Body), "")
+		if gotBody != expectedBody {
+			t.Errorf("Unexpected body: got %q want %q", gotBody, expectedBody)
+		}
+		if resp.Headers["Content-Type"] != "application/json" {
+			t.Errorf("Unexpected header: %s", resp.Headers["Content-Type"])
+		}
+	})
+
+	t.Run("Parse with No Separator", func(t *testing.T) {
+		output := "Some random error message without a separator"
+		resp := server.parseUIOutput(output, 0.1, "")
+		if resp.Success {
+			t.Error("Expected failure for missing separator, but got success")
+		}
+		if resp.Error != "Could not parse GULP output" {
+			t.Errorf("Unexpected error message: %s", resp.Error)
+		}
+	})
+
+	t.Run("Fallback URL", func(t *testing.T) {
+		output := `
+[GULP] Status Code: 200 OK
+---
+Done.`
+		resp := server.parseUIOutput(output, 0.1, "http://fallback.url")
+		if resp.RequestURL != "http://fallback.url" {
+			t.Errorf("Expected fallback URL, got: %s", resp.RequestURL)
 		}
 	})
 }
