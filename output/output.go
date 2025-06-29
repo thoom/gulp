@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
+	"golang.org/x/term"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -48,30 +49,43 @@ func (bo *BuffOut) PrintHeader(txt string) {
 // PrintBlock prints out a block of code with the same background
 func (bo *BuffOut) PrintBlock(block string) {
 	pieces := strings.Split(block, "\n")
+
+	// Get terminal width, default to 80 if we can't determine it
+	terminalWidth := 80
+	if width, _, err := term.GetSize(int(os.Stdout.Fd())); err == nil && width > 0 {
+		terminalWidth = width
+	}
+
+	// Calculate the target width for the colored block
+	// Use the longest line length, but cap it at terminal width
 	max := 0
 	for _, v := range pieces {
-		// do something
 		l := len(v)
 		if l > max {
 			max = l
 		}
 	}
 
+	// Cap the block width at terminal width to prevent wrapping
+	if max > terminalWidth {
+		max = terminalWidth
+	}
+
 	var formatted []string
 	for i, v := range pieces {
-		l := len(v)
-		padding := ""
-		if l < max {
-			padding = strings.Repeat(" ", max-l)
-		}
-
-		v = fmt.Sprintf("%s%s ", v, padding)
 		if i == 0 {
 			bo.PrintHeader(v)
 			continue
 		}
 
-		formatted = append(formatted, color.New(color.FgBlack, color.BgCyan).Sprint(v))
+		// Pad the line to max width, but do not truncate
+		line := v
+		if len(line) < max {
+			line = line + strings.Repeat(" ", max-len(line))
+		}
+		// If the line is longer than max, do not truncate (let it wrap)
+		coloredLine := color.New(color.FgBlack, color.BgCyan).Sprint(line)
+		formatted = append(formatted, coloredLine)
 	}
 
 	fmt.Fprintln(bo.Out, strings.Join(formatted, "\n"))
