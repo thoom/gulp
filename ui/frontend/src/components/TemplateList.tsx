@@ -70,6 +70,20 @@ const TemplateList: React.FC<TemplateListProps> = ({
     setExpandedFolders(newExpanded);
   };
 
+  const handleFolderKeyDown = (event: React.KeyboardEvent, folder: string) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      toggleFolder(folder);
+    }
+  };
+
+  const handleTemplateKeyDown = (event: React.KeyboardEvent, template: Template) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      onSelectTemplate(template);
+    }
+  };
+
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -125,6 +139,7 @@ const TemplateList: React.FC<TemplateListProps> = ({
               <div
                 className="folder-header"
                 onClick={() => toggleFolder(group.folder)}
+                onKeyDown={(event) => handleFolderKeyDown(event, group.folder)}
                 role="button"
                 tabIndex={0}
               >
@@ -145,6 +160,7 @@ const TemplateList: React.FC<TemplateListProps> = ({
                     key={template.path}
                     className={`template-item ${selectedTemplate?.path === template.path ? 'selected' : ''} ${!template.is_valid ? 'invalid' : ''}`}
                     onClick={() => onSelectTemplate(template)}
+                    onKeyDown={(event) => handleTemplateKeyDown(event, template)}
                     role="button"
                     tabIndex={0}
                   >
