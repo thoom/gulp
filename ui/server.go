@@ -54,29 +54,35 @@ type ExecutionResponse struct {
 	RequestHeaders map[string]string `json:"request_headers,omitempty"`
 }
 
+// Allows for mocking exec.Command in tests
+var execCommand = exec.Command
+
 // Server represents the UI web server
 type Server struct {
 	port       string
 	templates  []Template
 	workingDir string
 	gulpBinary string // Path to the gulp binary to execute
+	staticFS   fs.FS  // Filesystem for the static UI assets
 }
 
 // StartServer initializes and starts the web UI server
 func StartServer(address string) error {
-	server := &Server{}
+	// Create the filesystem for the embedded static files
+	staticFS, err := fs.Sub(staticFiles, "static")
+	if err != nil {
+		return fmt.Errorf("could not create static filesystem: %w", err)
+	}
+
+	server := &Server{
+		gulpBinary: os.Args[0], // Default to current executable
+		staticFS:   staticFS,
+	}
 
 	// Parse address
 	if err := server.parseAddress(address); err != nil {
 		return fmt.Errorf("invalid address '%s': %w", address, err)
 	}
-
-	// Get current executable path to use for GULP execution
-	execPath, err := os.Executable()
-	if err != nil {
-		return fmt.Errorf("could not get current executable path: %w", err)
-	}
-	server.gulpBinary = execPath
 
 	// Get working directory
 	workingDir, err := os.Getwd()
@@ -334,73 +340,57 @@ func (s *Server) handleExecute(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Execute template with GULP integration
 	response := s.executeTemplate(req)
-
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		s.sendError(w, "Failed to encode response", http.StatusInternalServerError)
-	}
+	json.NewEncoder(w).Encode(response)
 }
 
 // executeTemplate integrates with actual GULP execution
 func (s *Server) executeTemplate(req TemplateRequest) ExecutionResponse {
-	start := time.Now()
+	startTime := time.Now()
 
-	// Build the GULP command arguments
-	args := []string{}
+	// Find the full path for the template
+	templateFullPath := filepath.Join(s.workingDir, req.TemplatePath)
 
-	// Add template variables
+	// Construct the command arguments
+	args := []string{
+		"-p", templateFullPath,
+		"-u", req.URL,
+		"-m", req.Method,
+		"--json-output", // Ensure output is in JSON format
+	}
 	for key, value := range req.Variables {
-		args = append(args, "--var", fmt.Sprintf("%s=%s", key, value))
+		args = append(args, "-v", fmt.Sprintf("%s=%s", key, value))
 	}
 
-	// Add method if specified
-	if req.Method != "" {
-		args = append(args, "--method", req.Method)
-	}
-
-	// Add UI output mode for structured parsing
-	args = append(args, "--output", "ui")
-
-	// Add config file
-	args = append(args, "--config", req.TemplatePath)
-
-	// Add URL if specified, otherwise use URL from config
-	if req.URL != "" {
-		args = append(args, req.URL)
-	}
-
-	// Execute GULP command (use relative path to ensure we use the correct binary)
-	cmd := exec.Command(s.gulpBinary, args...)
-	cmd.Dir = s.workingDir
-
-	var stdout, stderr bytes.Buffer
-	cmd.Stdout = &stdout
+	cmd := execCommand(s.gulpBinary, args...)
+	var out bytes.Buffer
+	var stderr bytes.Buffer
+	cmd.Stdout = &out
 	cmd.Stderr = &stderr
 
 	err := cmd.Run()
-	duration := time.Since(start).Seconds()
+	duration := time.Since(startTime).Seconds()
 
 	if err != nil {
-		// Handle execution error
-		errorMsg := stderr.String()
-		if errorMsg == "" {
-			errorMsg = err.Error()
-		}
-
 		return ExecutionResponse{
-			Success:    false,
-			Body:       stdout.String(), // Include any partial output
-			Error:      fmt.Sprintf("GULP execution failed: %s", errorMsg),
-			Duration:   duration,
-			RequestURL: req.URL,
+			Success:  false,
+			Error:    fmt.Sprintf("GULP execution failed: %s", stderr.String()),
+			Duration: duration,
 		}
 	}
 
-	// Parse successful response with UI output
-	output := stdout.String()
-	return s.parseUIOutput(output, duration, req.URL)
+	// The `parseUIOutput` function is designed for interactive output, not JSON.
+	// We will unmarshal the JSON directly.
+	var execResponse ExecutionResponse
+	if err := json.Unmarshal(out.Bytes(), &execResponse); err != nil {
+		// Fallback for older GULP versions or unexpected output
+		return s.parseUIOutput(out.String(), duration, req.URL)
+	}
+
+	// The JSON output from gulp might not include duration, so we set it here.
+	execResponse.Duration = duration
+	return execResponse
 }
 
 // parseUIOutput parses GULP UI output to extract request/response details
@@ -470,22 +460,24 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 
 // handleReactApp serves the React application
 func (s *Server) handleReactApp(w http.ResponseWriter, r *http.Request) {
-	// Handle API routes first
-	if strings.HasPrefix(r.URL.Path, "/api/") {
-		http.NotFound(w, r)
+	path := r.URL.Path
+
+	// If the path is a directory, serve index.html.
+	// This handles the root path "/" as well.
+	if strings.HasSuffix(path, "/") {
+		path = "index.html"
+	}
+
+	// Check if the file exists in the static filesystem.
+	if _, err := fs.Stat(s.staticFS, strings.TrimPrefix(path, "/")); os.IsNotExist(err) {
+		// If the file doesn't exist, serve the root index.html.
+		// This is the key for single-page application routing.
+		http.ServeFileFS(w, r, s.staticFS, "index.html")
 		return
 	}
 
-	// Serve index.html for all routes (SPA routing)
-	indexFile, err := staticFiles.ReadFile("static/index.html")
-	if err != nil {
-		// Fallback to simple HTML
-		s.handleRoot(w, r)
-		return
-	}
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write(indexFile)
+	// Serve the file from the embedded filesystem.
+	http.FileServer(http.FS(s.staticFS)).ServeHTTP(w, r)
 }
 
 // handleRoot serves a simple HTML page for fallback
