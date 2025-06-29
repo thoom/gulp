@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
-import { Template, ExecutionResponse } from '../types';
+import React, { useState, useEffect, useRef } from 'react';
 import { Play, Settings, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Template, ExecutionResponse } from '../types';
 
 interface DynamicFormProps {
   template: Template | null;
@@ -20,13 +20,17 @@ const DynamicForm: React.FC<DynamicFormProps> = ({
   const [lastExecution, setLastExecution] = useState<ExecutionResponse | null>(null);
   const [executing, setExecuting] = useState(false);
   const [activeTab, setActiveTab] = useState<'request' | 'response' | 'body'>('body');
+  
+  // Use ref to track previous variables to avoid dependency issues
+  const prevVariablesRef = useRef<Record<string, string>>({});
 
   // Reset form when template changes
   useEffect(() => {
     if (template) {
       const newVariables: Record<string, string> = {};
       template.variables.forEach(variable => {
-        newVariables[variable] = variables[variable] || '';
+        // Preserve existing value if it exists
+        newVariables[variable] = prevVariablesRef.current[variable] || '';
       });
       setVariables(newVariables);
       setCustomUrl('');
@@ -34,7 +38,12 @@ const DynamicForm: React.FC<DynamicFormProps> = ({
       setShowAdvanced(false);
       setActiveTab('body'); // Reset to first tab (Response Body)
     }
-  }, [template?.path]);
+  }, [template]);
+
+  // Update ref when variables change
+  useEffect(() => {
+    prevVariablesRef.current = variables;
+  }, [variables]);
 
   const handleVariableChange = (variable: string, value: string) => {
     setVariables(prev => ({

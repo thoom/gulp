@@ -683,10 +683,7 @@ func processTemplateFlag(tmplFile string) ([]byte, error) {
 // processFormFields handles --form fields
 func processFormFields(headers map[string]string) ([]byte, map[string]string, error) {
 	// Convert form fields to form data format
-	var formData []string
-	for _, field := range formFields {
-		formData = append(formData, field)
-	}
+	formData := append([]string{}, formFields...)
 
 	formInput := strings.Join(formData, "\n")
 	processedBody, contentType, err := form.ProcessFormData([]byte(formInput))
@@ -1017,11 +1014,9 @@ func handleResponse(resp *http.Response, duration float64, bo *output.BuffOut) {
 				"url":    resp.Request.URL.String(),
 				"headers": func() map[string]string {
 					headers := make(map[string]string)
-					if lastRequestHeaders != nil {
-						for k, v := range lastRequestHeaders {
-							if len(v) > 0 {
-								headers[k] = v[0] // Take first value
-							}
+					for k, v := range lastRequestHeaders {
+						if len(v) > 0 {
+							headers[k] = v[0] // Take first value
 						}
 					}
 					return headers

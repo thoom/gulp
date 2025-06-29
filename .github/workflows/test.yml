@@ -19,6 +19,24 @@ jobs:
           # Disabling shallow clone is recommended for improving relevancy of reporting
           fetch-depth: 0
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: ui/frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        run: cd ui/frontend && npm ci
+
+      - name: Build frontend
+        run: cd ui/frontend && npm run build
+
+      - name: Copy frontend build to static directory
+        run: |
+          mkdir -p ui/static
+          cp -r ui/frontend/build/* ui/static/
+
       - name: Lint and Vet
         run: go vet ./...
 

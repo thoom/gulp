@@ -5,15 +5,15 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"sync"
 	"testing"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"github.com/stretchr/testify/assert"
 	"github.com/thoom/gulp/client"
 	"github.com/thoom/gulp/config"
 	"github.com/thoom/gulp/output"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func resetRedirectFlags() {
@@ -1391,10 +1391,13 @@ func TestExecuteRequestsWithConcurrencyBasic(t *testing.T) {
 func TestExecuteRequestsWithConcurrencyMultiple(t *testing.T) {
 	assert := assert.New(t)
 
-	// Create a mock HTTP server that counts requests
-	requestCount := 0
+	// Create a mock HTTP server that counts requests with proper synchronization
+	var requestCount int
+	var mu sync.Mutex
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
 		requestCount++
+		mu.Unlock()
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("test response"))
 	}))
