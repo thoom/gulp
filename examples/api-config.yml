@@ -1,0 +1,44 @@
+# Complete API configuration showcasing all v1.0 features
+url: https://api.{{.Vars.environment}}.company.com/{{.Vars.endpoint}}
+method: "{{.Vars.http_method}}"
+timeout: "{{.Vars.timeout}}s"
+output: "{{.Vars.output_mode}}"
+
+# Dynamic headers with environment-specific tokens
+headers:
+  Authorization: "Bearer {{.Vars.api_token}}"
+  Content-Type: application/json
+  User-Agent: "GULP/1.0 ({{.Vars.environment}})"
+  X-Request-ID: "{{.Vars.request_id}}"
+  X-Client-Version: "{{.Vars.client_version}}"
+  X-Environment: "{{.Vars.environment}}"
+
+# Authentication with environment variables
+auth:
+  basic:
+    username: "{{.Vars.api_username}}"
+    password: "{{.Vars.api_password}}"
+
+# Template-driven request data
+data:
+  template: "@examples/api-request.json"
+  variables:
+    service_name: "user-service"
+    api_version: "v1"
+    region: "us-east-1"
+
+# Environment-specific settings
+request:
+  insecure: false
+  follow_redirects: true
+
+# Load testing configuration
+repeat:
+  times: 1
+  concurrent: 1
+
+# Feature flags
+flags:
+  follow_redirects: true
+  use_color: true
+  verify_tls: true 

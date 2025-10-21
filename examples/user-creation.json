@@ -1,0 +1,19 @@
+{
+  "user": {
+    "name": "{{.Vars.name}}",
+    "email": "{{.Vars.email}}",
+    "role": "{{.Vars.role}}",
+    "department": "{{.Vars.department}}"
+  },
+  "metadata": {
+    "created_at": "{{.Vars.timestamp}}",
+    "created_by": "{{.Vars.admin_user}}",
+    "environment": "{{.Vars.env}}",
+    "source": "gulp-v1"
+  },
+  "settings": {
+    "send_welcome_email": {{.Vars.send_email}},
+    "require_password_reset": {{.Vars.require_reset}},
+    "access_level": {{.Vars.access_level}}
+  }
+} 

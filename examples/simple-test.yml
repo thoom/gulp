@@ -1,0 +1,3 @@
+url: https://httpbin.org/get
+method: GET
+output: ui

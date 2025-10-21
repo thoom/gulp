@@ -1,0 +1,29 @@
+{
+  "application": "{{.Vars.app_name}}",
+  "environment": "{{.Vars.env}}",
+  "config": {
+    {{if eq .Vars.env "production"}}
+    "log_level": "error",
+    "debug_mode": false,
+    "cache_ttl": 3600,
+    "max_connections": 100
+    {{else if eq .Vars.env "staging"}}
+    "log_level": "warn", 
+    "debug_mode": false,
+    "cache_ttl": 1800,
+    "max_connections": 50
+    {{else}}
+    "log_level": "debug",
+    "debug_mode": true,
+    "cache_ttl": 300,
+    "max_connections": 10
+    {{end}}
+  },
+  "features": [
+    "core"
+    {{if .Vars.feature_auth}}, "authentication"{{end}}
+    {{if .Vars.feature_monitoring}}, "monitoring"{{end}}
+    {{if .Vars.feature_cache}}, "caching"{{end}}
+  ],
+  "deployed_at": "{{.Vars.timestamp}}"
+} 

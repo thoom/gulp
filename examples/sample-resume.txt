@@ -1,0 +1,20 @@
+ALICE JOHNSON
+Senior Software Developer
+alice.johnson@example.com
++1 (555) 123-4567
+
+EXPERIENCE:
+- 8+ years in full-stack development
+- Expert in Go, JavaScript, Python
+- API design and microservices architecture
+- Led teams of 5-10 developers
+
+EDUCATION:
+- BS Computer Science, State University
+- AWS Certified Solutions Architect
+
+SKILLS:
+- Programming: Go, JavaScript, Python, Java
+- Databases: PostgreSQL, MongoDB, Redis
+- Cloud: AWS, Docker, Kubernetes
+- Tools: Git, CI/CD, Terraform 

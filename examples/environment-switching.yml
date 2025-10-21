@@ -1,0 +1,89 @@
+# Environment Switching Example with URL and Header Templating
+# This demonstrates the new v1.0 URL and header templating feature
+
+# Dynamic URL construction based on environment and API version
+url: https://{{.Vars.subdomain}}.{{.Vars.environment}}.{{.Vars.domain}}/{{.Vars.api_version}}/{{.Vars.resource}}
+
+method: GET
+timeout: "30s"
+output: verbose
+
+# Dynamic headers with environment-specific values
+headers:
+  # Dynamic authentication token based on environment
+  Authorization: "Bearer {{.Vars.auth_token}}"
+  
+  # Environment-specific headers
+  X-Environment: "{{.Vars.environment}}"
+  X-API-Version: "{{.Vars.api_version}}"
+  X-Client-ID: "{{.Vars.client_id}}"
+  X-Tenant-ID: "{{.Vars.tenant_id}}"
+  
+  # Dynamic request tracking
+  X-Request-ID: "{{.Vars.request_id}}"
+  X-Correlation-ID: "{{.Vars.correlation_id}}"
+  
+  # User agent with dynamic version
+  User-Agent: "MyApp/{{.Vars.app_version}} ({{.Vars.environment}})"
+  
+  # Content negotiation
+  Accept: "application/vnd.api+json;version={{.Vars.api_version}}"
+  Content-Type: "application/json"
+
+# Static authentication (could also be templated if needed)
+auth:
+  basic:
+    username: "api-user"
+    password: "secret"
+
+# Request settings
+request:
+  insecure: false
+  follow_redirects: true
+
+# Load testing
+repeat:
+  times: 1
+  concurrent: 1
+
+# Feature flags
+flags:
+  follow_redirects: true
+  use_color: true
+  verify_tls: true
+
+# Example usage:
+# 
+# Development environment:
+# gulp -c examples/environment-switching.yml \
+#   --var subdomain=api \
+#   --var environment=dev \
+#   --var domain=mycompany.com \
+#   --var api_version=v2 \
+#   --var resource=users/123 \
+#   --var auth_token=dev-token-123 \
+#   --var client_id=dev-client \
+#   --var tenant_id=tenant-dev \
+#   --var request_id=req-dev-456 \
+#   --var correlation_id=corr-dev-789 \
+#   --var app_version=1.0.0
+#
+# Production environment:
+# gulp -c examples/environment-switching.yml \
+#   --var subdomain=api \
+#   --var environment=prod \
+#   --var domain=mycompany.com \
+#   --var api_version=v2 \
+#   --var resource=users/123 \
+#   --var auth_token=prod-token-xyz \
+#   --var client_id=prod-client \
+#   --var tenant_id=tenant-prod \
+#   --var request_id=req-prod-abc \
+#   --var correlation_id=corr-prod-def \
+#   --var app_version=1.0.0
+#
+# This will generate URLs like:
+# - Dev: https://api.dev.mycompany.com/v2/users/123
+# - Prod: https://api.prod.mycompany.com/v2/users/123
+#
+# With environment-specific headers for authentication, tracking, and versioning. 
